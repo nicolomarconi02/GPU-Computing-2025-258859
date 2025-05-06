@@ -12,17 +12,20 @@ include_directories(
   ${EXTERNAL_DIRS}
 )
 
+# add_library(utils)
+# target_link_libraries(utils PRIVATE mmio)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/cpu)
 
-add_executable(cpu-csr
-  ${CDIR}/executables/cpu-csr/main.cpp
+add_executable(cpu_csr
+  ${CDIR}/executables/cpu_csr/main.cpp
 )
 
-target_link_libraries(cpu-csr )
+target_link_libraries(cpu_csr mmio)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
 
-add_executable(gpu-csr
-  ${CDIR}/executables/gpu-csr/main.cpp
+add_executable(gpu_csr
+  ${CDIR}/executables/gpu_csr/main.cpp
 )
 
