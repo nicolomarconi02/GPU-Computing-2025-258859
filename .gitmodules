@@ -1,3 +1,6 @@
 [submodule "external/mmio"]
 	path = external/mmio
 	url = git@github.com:dendisuhubdy/mmio.git
+[submodule "external/expected"]
+	path = external/expected
+	url = git@github.com:TartanLlama/expected.git
