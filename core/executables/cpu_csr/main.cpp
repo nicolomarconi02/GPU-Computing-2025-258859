@@ -1,11 +1,6 @@
-#include <fstream>
 #include <iostream>
 #include <filesystem>
 #include "utils/parser.hpp"
-
-extern "C"{
-  #include "mmio.h"
-}
 
 int main(int argc, char** argv){
   if(argc != 2){
@@ -26,5 +21,6 @@ int main(int argc, char** argv){
   }
 
   std::cout << "CPU-CSR" << std::endl;
+  retMatrix->freeMatrix();
   return 0;
 }

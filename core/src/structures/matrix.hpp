@@ -26,6 +26,19 @@ enum class MatrixType_ {
 template <typename T>
 class Matrix {
  public:
+  Matrix(int _N_ROWS, int _N_COLS, int _N_ELEM)
+      : N_ROWS(_N_ROWS), N_COLS(_N_COLS), N_ELEM(_N_ELEM) {
+    rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+    columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+    values = (T*)malloc(N_ELEM * sizeof(T));
+  }
+
+  void freeMatrix(){
+    free(rows);
+    free(columns);
+    free(values);
+  }
+
   MatrixType type;
   uint32_t* rows;
   uint32_t* columns;
@@ -34,6 +47,16 @@ class Matrix {
   int N_ROWS;
   int N_COLS;
   int N_ELEM;
+
+  Matrix<T>& operator=(Matrix<T> other){
+    this->N_ELEM = other.N_ELEM;
+    this->N_COLS = other.N_COLS;
+    this->N_ROWS = other.N_ROWS;
+    this->type = other.type;
+    this->values = std::move(other.values);
+    this->columns = std::move(other.columns);
+    this->rows = std::move(other.rows);
+  }
 
   friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
     for (int i = 0; i < mat.N_ELEM; i++) {

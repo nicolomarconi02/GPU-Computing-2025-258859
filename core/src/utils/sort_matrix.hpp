@@ -19,7 +19,7 @@ void swap(Matrix<T>& mat, int i, int j) {
 
 template <typename T>
 int partition(Matrix<T>& mat, int low, int high) {
-  int pivot = mat.rows[high];  
+  uint32_t pivot = mat.rows[high];  
   int i = (low - 1);      
   for (int j = low; j <= high - 1; j++) {
     if (mat.rows[j] < pivot) {
