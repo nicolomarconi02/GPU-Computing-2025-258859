@@ -1,6 +1,7 @@
 #include <iostream>
 #include <filesystem>
 #include "utils/parser.hpp"
+#include "structures/matrix.hpp"
 
 int main(int argc, char** argv){
   if(argc != 2){
@@ -19,6 +20,8 @@ int main(int argc, char** argv){
     std::cerr << retMatrix.error() << std::endl;
     exit(3);
   }
+
+  std::cout << retMatrix.value() << std::endl;
 
   std::cout << "CPU-CSR" << std::endl;
   retMatrix->freeMatrix();

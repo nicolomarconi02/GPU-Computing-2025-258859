@@ -9,9 +9,9 @@ void swap(Matrix<T>& mat, int i, int j) {
   int tmpRow = mat.rows[i];
   int tmpCol = mat.columns[i];
   T tmpVal = mat.values[i];
-  mat.rows[i] = mat.rows[j]; 
-  mat.columns[i] = mat.columns[j]; 
-  mat.values[i] = mat.values[j]; 
+  mat.rows[i] = mat.rows[j];
+  mat.columns[i] = mat.columns[j];
+  mat.values[i] = mat.values[j];
   mat.rows[j] = tmpRow;
   mat.columns[j] = tmpCol;
   mat.values[j] = tmpVal;
@@ -19,11 +19,12 @@ void swap(Matrix<T>& mat, int i, int j) {
 
 template <typename T>
 int partition(Matrix<T>& mat, int low, int high) {
-  uint32_t pivot = mat.rows[high];  
-  int i = (low - 1);      
+  uint32_t pivotRow = mat.rows[high];
+  uint32_t pivotCol = mat.columns[high];
+  int i = (low - 1);
   for (int j = low; j <= high - 1; j++) {
-    if (mat.rows[j] < pivot) {
-      i++;  
+    if ((mat.rows[j] < pivotRow) || (mat.rows[j] == pivotRow && mat.columns[j] < pivotCol)) {
+      i++;
       swap(mat, i, j);
     }
   }
@@ -41,7 +42,7 @@ void quickSort(Matrix<T>& mat, int low, int high) {
 }
 
 template <typename T>
-void sortMatrix(Matrix<T> &mat) {
+void sortMatrix(Matrix<T>& mat) {
   quickSort(mat, 0, mat.N_ELEM - 1);
 }
 

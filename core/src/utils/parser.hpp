@@ -40,8 +40,6 @@ tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(const std::string& pa
  
   sortMatrix(matrix); 
 
-  std::cout << matrix << std::endl;
-
   fclose(inputFile);
   return matrix;
 }
