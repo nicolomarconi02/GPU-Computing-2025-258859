@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include "structures/matrix.hpp"
@@ -39,6 +40,12 @@ tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(const std::string& pa
   }
  
   sortMatrix(matrix); 
+
+  auto retCSR = matrix.computeCSR();  
+
+  if(!retCSR.has_value()){
+    return tl::make_unexpected(retCSR.error());
+  }
 
   fclose(inputFile);
   return matrix;
