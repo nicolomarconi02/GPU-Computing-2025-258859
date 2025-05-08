@@ -1,5 +1,6 @@
 #pragma once
 
+#include <profiler/profiler.hpp>
 #include "structures/matrix.hpp"
 
 namespace Utils {
@@ -43,6 +44,7 @@ void quickSort(Matrix<T>& mat, int low, int high) {
 
 template <typename T>
 void sortMatrix(Matrix<T>& mat) {
+  ScopeProfiler prof("quickSort");
   quickSort(mat, 0, mat.N_ELEM - 1);
 }
 
