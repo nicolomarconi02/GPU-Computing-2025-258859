@@ -23,6 +23,8 @@ int main(int argc, char** argv){
 
   std::cout << retMatrix.value() << std::endl;
 
+  std::cout << "TYPE: " << retMatrix.value().type << std::endl;
+
   std::cout << "CPU-CSR" << std::endl;
   retMatrix->freeMatrix();
   return 0;

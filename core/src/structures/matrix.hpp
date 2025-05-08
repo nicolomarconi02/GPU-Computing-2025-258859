@@ -8,7 +8,7 @@
 
 typedef int MatrixType;
 
-enum class MatrixType_ {
+enum MatrixType_ : int{
   matrix = 1 << 0,
 
   coordinate = 1 << 1,
