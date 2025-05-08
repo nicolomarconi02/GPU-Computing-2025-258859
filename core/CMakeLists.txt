@@ -10,11 +10,14 @@ include_directories(
   ${CDIR}/src
 )
 
+add_library(profiler
+  ${CDIR}/src/profiler/profiler.cpp
+)
 
 add_library(utils 
   ${CDIR}/src/utils/parser.cpp
 )
-target_link_libraries(utils PRIVATE mmio)
+target_link_libraries(utils PRIVATE mmio profiler)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/cpu)
 
@@ -22,7 +25,7 @@ add_executable(cpu_csr
   ${CDIR}/executables/cpu_csr/main.cpp
 )
 
-target_link_libraries(cpu_csr utils)
+target_link_libraries(cpu_csr utils profiler)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
 

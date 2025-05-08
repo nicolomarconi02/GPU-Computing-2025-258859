@@ -6,6 +6,7 @@
 #include "structures/matrix.hpp"
 #include "expected.hpp"
 #include "utils/sort_matrix.hpp"
+#include "profiler/profiler.hpp"
 
 extern "C" {
 #include "mmio.h"
@@ -19,6 +20,7 @@ tl::expected<MatrixType, std::string> parseMatrixType(
 template <typename T>
 tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
     const std::string& path) {
+  ScopeProfiler prof("parseMatrixMarketFile");
   FILE* inputFile = fopen(path.c_str(), "r");
   MM_typecode matcode;
   int N_ROWS, N_COLS, N_ELEM = 0;

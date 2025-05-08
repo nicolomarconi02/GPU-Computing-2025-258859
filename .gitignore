@@ -56,3 +56,4 @@ compile_commands.json
 .DS_Store
 
 input-files/
+profiler_session/
