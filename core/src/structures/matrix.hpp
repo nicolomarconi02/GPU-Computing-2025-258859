@@ -3,12 +3,14 @@
 #include <sys/types.h>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <ostream>
+#include <cstring>
 #include "expected.hpp"
 
-typedef int MatrixType;
+typedef uint16_t MatrixType;
 
-enum MatrixType_ : int{
+enum MatrixType_ : uint16_t {
   matrix = 1 << 0,
 
   coordinate = 1 << 1,
@@ -37,16 +39,112 @@ class Matrix {
     values = (T*)malloc(N_ELEM * sizeof(T));
   }
 
+  Matrix(MatrixType _type, int _N_ELEM) : N_ELEM(_N_ELEM) {
+    if (_type & MatrixType_::array) {
+      type = _type;
+      values = (T*)calloc(N_ELEM, sizeof(T));
+    }
+  }
+
+  ~Matrix() { freeMatrix(); }
+  Matrix(const Matrix<T>& other)
+      : N_ROWS(other.N_ROWS),
+        N_COLS(other.N_COLS),
+        N_ELEM(other.N_ELEM),
+        type(other.type) {
+    rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+    columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+    values = (T*)malloc(N_ELEM * sizeof(T));
+    std::copy(other.rows, other.rows + N_ELEM, rows);
+    std::copy(other.columns, other.columns + N_ELEM, columns);
+    std::copy(other.values, other.values + N_ELEM, values);
+
+    if (other.csr) {
+      csr = (uint32_t*)malloc((N_ROWS + 1) * sizeof(uint32_t));
+      std::copy(other.csr, other.csr + N_ROWS + 1, csr);
+    } else {
+      csr = nullptr;
+    }
+  }
+  Matrix(Matrix<T>&& other) noexcept
+      : N_ROWS(other.N_ROWS),
+        N_COLS(other.N_COLS),
+        N_ELEM(other.N_ELEM),
+        type(other.type),
+        rows(other.rows),
+        columns(other.columns),
+        values(other.values),
+        csr(other.csr) {
+    other.rows = nullptr;
+    other.columns = nullptr;
+    other.values = nullptr;
+    other.csr = nullptr;
+  }
+  Matrix& operator=(const Matrix<T>& other) {
+    if (this != &other) {
+      freeMatrix();
+
+      N_ROWS = other.N_ROWS;
+      N_COLS = other.N_COLS;
+      N_ELEM = other.N_ELEM;
+      type = other.type;
+
+      rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+      columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
+      values = (T*)malloc(N_ELEM * sizeof(T));
+      std::copy(other.rows, other.rows + N_ELEM, rows);
+      std::copy(other.columns, other.columns + N_ELEM, columns);
+      std::copy(other.values, other.values + N_ELEM, values);
+
+      if (other.csr) {
+        csr = (uint32_t*)malloc((N_ROWS + 1) * sizeof(uint32_t));
+        std::copy(other.csr, other.csr + N_ROWS + 1, csr);
+      } else {
+        csr = nullptr;
+      }
+    }
+    return *this;
+  }
+  Matrix& operator=(Matrix<T>&& other) noexcept {
+    if (this != &other) {
+      freeMatrix();
+
+      N_ROWS = other.N_ROWS;
+      N_COLS = other.N_COLS;
+      N_ELEM = other.N_ELEM;
+      type = other.type;
+
+      rows = other.rows;
+      columns = other.columns;
+      values = other.values;
+      csr = other.csr;
+
+      other.rows = nullptr;
+      other.columns = nullptr;
+      other.values = nullptr;
+      other.csr = nullptr;
+    }
+    return *this;
+  }
   void freeMatrix() {
-    free(rows);
-    free(columns);
-    free(values);
+    if (columns != nullptr) {
+      free(columns);
+    }
+    if (values != nullptr) {
+      free(values);
+    }
+    if (rows != nullptr) {
+      free(rows);
+    }
     if (csr != nullptr) {
       free(csr);
     }
   }
 
   tl::expected<bool, std::string> computeCSR() {
+    if (type & MatrixType_::array) {
+      return tl::make_unexpected("Cannot compute CSR for an array");
+    }
     csr = (uint32_t*)calloc(N_ROWS + 1, sizeof(uint32_t));
     if (!csr) {
       return tl::make_unexpected("Memory allocation for CSR failed");
@@ -66,37 +164,33 @@ class Matrix {
     return true;
   }
 
-  MatrixType type;
-  uint32_t* csr;
-  uint32_t* rows;
-  uint32_t* columns;
-  T* values;
+  MatrixType type = 0;
+  uint32_t* csr = nullptr;
+  uint32_t* rows = nullptr;
+  uint32_t* columns = nullptr;
+  T* values = nullptr;
 
-  int N_ROWS;
-  int N_COLS;
-  int N_ELEM;
-
-  Matrix<T>& operator=(Matrix<T> other) {
-    this->N_ELEM = other.N_ELEM;
-    this->N_COLS = other.N_COLS;
-    this->N_ROWS = other.N_ROWS;
-    this->type = other.type;
-    this->values = std::move(other.values);
-    this->columns = std::move(other.columns);
-    this->rows = std::move(other.rows);
-    this->csr = std::move(other.csr);
-  }
+  int N_ROWS = 0;
+  int N_COLS = 0;
+  int N_ELEM = 0;
 
   friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
-    for (int i = 0; i < mat.N_ELEM; i++) {
-      os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]
-         << std::endl;
+    if (mat.type & MatrixType_::array) {
+      for (int i = 0; i < mat.N_ELEM; i++) {
+        os << mat.values[i] << std::endl;
+      }
+    } else {
+      for (int i = 0; i < mat.N_ELEM; i++) {
+        os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]
+           << std::endl;
+      }
+      os << "\nCSR\n";
+      for (int i = 0; i <= mat.N_ROWS; i++) {
+        os << mat.csr[i] << " ";
+      }
+      os << std::endl;
     }
-    os << "\nCSR\n";
-    for (int i = 0; i <= mat.N_ROWS; i++) {
-      os << mat.csr[i] << " ";
-    }
-    os << std::endl;
+
     return os;
   }
 };

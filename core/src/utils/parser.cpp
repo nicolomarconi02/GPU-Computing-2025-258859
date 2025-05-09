@@ -1,9 +1,6 @@
-#include <cstdint>
 #include <cstdio>
-#include <iostream>
 #include "structures/matrix.hpp"
 #include "expected.hpp"
-#include "utils/sort_matrix.hpp"
 
 extern "C" {
 #include "mmio.h"

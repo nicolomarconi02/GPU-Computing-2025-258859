@@ -7,7 +7,7 @@
 #include "operations/cpu_matrix_vec.hpp"
 #include "profiler/profiler.hpp"
 
-typedef double data_t;
+typedef double dtype_t;
 
 int main(int argc, char** argv){
   ScopeProfiler prof("main");
@@ -21,31 +21,31 @@ int main(int argc, char** argv){
     exit(2);
   }
 
-  auto retMatrix = Utils::parseMatrixMarketFile<data_t>(argv[1]);
+  auto retMatrix = Utils::parseMatrixMarketFile<dtype_t>(argv[1]);
 
   if(!retMatrix.has_value()){
     std::cerr << retMatrix.error() << std::endl;
     exit(3);
   }
 
-  data_t* vec = (data_t*) malloc(sizeof(data_t) * retMatrix.value().N_ELEM);
+  Matrix<dtype_t> vec(MatrixType_::array, retMatrix.value().N_ELEM);
   for(int i = 0; i < retMatrix.value().N_ELEM; i++){
-    vec[i] = 1;
+    vec.values[i] = 1;
   }
 
   std::cout << retMatrix.value() << std::endl;
   
   std::cout << "start vec" << std::endl;
-  Utils::printVector(vec, retMatrix.value().N_ELEM);
+  std::cout << vec;
 
   auto retMult = Operations::multiplication(retMatrix.value(), vec);
+  if(!retMult.has_value()){
+    std::cerr << retMult.error() << std::endl;
+    exit(4);
+  }
   
   std::cout << "ret vec" << std::endl;
-  Utils::printVector(retMult.value(), retMatrix.value().N_ROWS);
-
+  std::cout << retMult.value();
   std::cout << "CPU-CSR" << std::endl;
-  retMatrix->freeMatrix();
-  free(vec);
-  free(retMult.value());
   return 0;
 }
