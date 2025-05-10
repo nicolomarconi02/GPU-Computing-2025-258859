@@ -19,7 +19,7 @@ tl::expected<MatrixType, std::string> parseMatrixType(
 bool checkSupportedMatrixType(const MatrixType type);
 
 template <typename T>
-tl::expected<bool, std::string> storeMatrix(FILE* file, Matrix<T>& matrix) {
+void storeMatrix(FILE* file, Matrix<T>& matrix) {
   int counterElem = 0;
   if (matrix.type & MatrixType_::pattern) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
@@ -37,17 +37,33 @@ tl::expected<bool, std::string> storeMatrix(FILE* file, Matrix<T>& matrix) {
       }
     }
   }
+  if (matrix.type & MatrixType_::array) {
+    for (int i = 0; i < matrix.N_ELEM; i++) {
+      fscanf(file, "%d %lg\n", &matrix.rows[i], &matrix.values[i]);
+      matrix.rows[i]--;
+      matrix.columns[i] = 0;
+    }
+  }
   if (matrix.type & MatrixType_::real || matrix.type & MatrixType_::integer) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
       fscanf(file, "%d %d %lg\n", &matrix.rows[i], &matrix.columns[i],
              &matrix.values[i]);
       matrix.rows[i]--;
       matrix.columns[i]--;
+      if (matrix.type & MatrixType_::symmetric &&
+          matrix.rows[i] != matrix.columns[i]) {
+        matrix.values[i + 1] = matrix.values[i];
+        matrix.rows[i + 1] = matrix.columns[i];
+        matrix.columns[i + 1] = matrix.rows[i];
+        counterElem++;
+        i++;
+      }
     }
   }
 
-  matrix.N_ELEM = (matrix.N_ELEM / 2) + counterElem;
-  return true;
+  if (matrix.type & MatrixType_::symmetric) {
+    matrix.N_ELEM = (matrix.N_ELEM / 2) + counterElem;
+  }
 }
 
 template <typename T>
