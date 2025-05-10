@@ -24,3 +24,9 @@ remove-session:
 		echo "Removing profiler_session folder";\
 		rm -rf profiler_session;\
 	fi;
+
+remove-outputs:
+	@if [ -d output_matrices ]; then \
+		echo "Removing output_matrices folder";\
+		rm -rf output_matrices;\
+	fi;

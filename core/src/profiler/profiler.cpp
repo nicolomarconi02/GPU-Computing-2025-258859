@@ -32,7 +32,7 @@ inline std::string formatTime(uint64_t timestamp) {
   return std::string(buff);
 }
 
-static uint64_t getTimestampMicroseconds() {
+inline uint64_t getTimestampMicroseconds() {
   struct timeval tv;
   gettimeofday(&tv, nullptr);
   return tv.tv_sec * 1000000 + tv.tv_usec;
@@ -52,8 +52,8 @@ Profiler::Profiler() {
   if (!std::filesystem::exists(PROFILER_OUTPUT_PATH)) {
     std::filesystem::create_directory(PROFILER_OUTPUT_PATH);
   }
-  fileName = "session-" + formatDate(getTimestampMicroseconds()) + "-" +
-             formatTime(getTimestampMicroseconds());
+  fileName = "session-" + ::formatDate(::getTimestampMicroseconds()) + "-" +
+             ::formatTime(::getTimestampMicroseconds());
 
   outputFile.open(PROFILER_OUTPUT_PATH + fileName, std::ofstream::out);
   if (!outputFile.is_open()) {
@@ -84,7 +84,7 @@ void Profiler::addMeasure(const std::string& id, const time_point& start,
 
   measure_t record;
   record.id = id;
-  record.duration = getDeltaSecs(stop - start);
+  record.duration = ::getDeltaSecs(stop - start);
 
   outputFile << record;
   std::cout << record;

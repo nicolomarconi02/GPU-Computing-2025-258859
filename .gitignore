@@ -55,5 +55,6 @@ compile_commands.json
 # Mac
 .DS_Store
 
-input-files/
+input_files/
 profiler_session/
+output_matrices/

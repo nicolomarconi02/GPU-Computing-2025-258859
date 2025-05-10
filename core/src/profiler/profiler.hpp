@@ -5,6 +5,11 @@
 
 using time_point = std::chrono::steady_clock::time_point;
 
+inline double getDeltaSecs(const auto& delta_t);
+inline std::string formatDate(uint64_t timestamp);
+inline std::string formatTime(uint64_t timestamp);
+inline uint64_t getTimestampMicroseconds();
+
 struct measure_t {
   std::string id;
   double duration;

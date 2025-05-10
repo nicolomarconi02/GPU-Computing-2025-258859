@@ -26,7 +26,8 @@ enum MatrixType_ : uint16_t {
   symmetric = 1 << 9,
   general = 1 << 10,
   skew = 1 << 11,
-  hermitian = 1 << 12
+  hermitian = 1 << 12,
+  supported_type = matrix | coordinate | array | dense | sparse | real | integer | general | symmetric | pattern
 };
 
 template <typename T>
@@ -176,9 +177,12 @@ class Matrix {
 
   friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
     if (mat.type & MatrixType_::array) {
+      int total = 0;
       for (int i = 0; i < mat.N_ELEM; i++) {
-        os << mat.values[i] << std::endl;
+        os << mat.values[i] << " ";
+        total += mat.values[i];
       }
+      os << std::endl << "TOTAL " << total << std::endl;
     } else {
       for (int i = 0; i < mat.N_ELEM; i++) {
         os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]

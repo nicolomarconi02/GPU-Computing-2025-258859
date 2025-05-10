@@ -3,3 +3,4 @@
 #define PROJECT_PATH "@CMAKE_SOURCE_DIR@"
 #define STATISTICS_PATH PROJECT_PATH "/statistics/"
 #define PROFILER_OUTPUT_PATH PROJECT_PATH "/profiler_session/"
+#define MATRICES_OUTPUT_PATH PROJECT_PATH "/output_matrices/"

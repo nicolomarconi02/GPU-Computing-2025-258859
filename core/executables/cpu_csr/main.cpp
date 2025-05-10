@@ -47,5 +47,6 @@ int main(int argc, char** argv){
   std::cout << "ret vec" << std::endl;
   std::cout << retMult.value();
   std::cout << "CPU-CSR" << std::endl;
+  Utils::saveResultsToFile(retMatrix.value(), vec, retMult.value());
   return 0;
 }
