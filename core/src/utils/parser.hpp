@@ -1,8 +1,7 @@
 #pragma once
 
-#include <cstdint>
+#include <algorithm>
 #include <cstdio>
-#include <iostream>
 #include "structures/matrix.hpp"
 #include "expected.hpp"
 #include "utils/sort_matrix.hpp"
@@ -16,6 +15,40 @@ namespace Utils {
 
 tl::expected<MatrixType, std::string> parseMatrixType(
     const MM_typecode& matcode);
+
+bool checkSupportedMatrixType(const MatrixType type);
+
+template <typename T>
+tl::expected<bool, std::string> storeMatrix(FILE* file, Matrix<T>& matrix) {
+  int counterElem = 0;
+  if (matrix.type & MatrixType_::pattern) {
+    for (int i = 0; i < matrix.N_ELEM; i++) {
+      fscanf(file, "%d %d\n", &matrix.rows[i], &matrix.columns[i]);
+      matrix.values[i] = 1;
+      matrix.rows[i]--;
+      matrix.columns[i]--;
+      if (matrix.type & MatrixType_::symmetric &&
+          matrix.rows[i] != matrix.columns[i]) {
+        matrix.values[i + 1] = matrix.values[i];
+        matrix.rows[i + 1] = matrix.columns[i];
+        matrix.columns[i + 1] = matrix.rows[i];
+        counterElem++;
+        i++;
+      }
+    }
+  }
+  if (matrix.type & MatrixType_::real || matrix.type & MatrixType_::integer) {
+    for (int i = 0; i < matrix.N_ELEM; i++) {
+      fscanf(file, "%d %d %lg\n", &matrix.rows[i], &matrix.columns[i],
+             &matrix.values[i]);
+      matrix.rows[i]--;
+      matrix.columns[i]--;
+    }
+  }
+
+  matrix.N_ELEM = (matrix.N_ELEM / 2) + counterElem;
+  return true;
+}
 
 template <typename T>
 tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
@@ -38,18 +71,18 @@ tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
     return tl::make_unexpected("Error reading the matrix size");
   }
 
-  Matrix<T> matrix(N_ROWS, N_COLS, N_ELEM);
   auto retType = parseMatrixType(matcode);
-  if(!retType.has_value()){
+  if (!retType.has_value()) {
     return tl::make_unexpected(retType.error());
+  } else {
+    if (retType.value() & MatrixType_::symmetric) {
+      N_ELEM *= 2;
+    }
   }
+  Matrix<T> matrix(N_ROWS, N_COLS, N_ELEM);
   matrix.type = retType.value();
-  for (int i = 0; i < matrix.N_ELEM; i++) {
-    fscanf(inputFile, "%d %d %lg\n", &matrix.rows[i], &matrix.columns[i],
-           &matrix.values[i]);
-    matrix.rows[i]--;
-    matrix.columns[i]--;
-  }
+
+  storeMatrix(inputFile, matrix);
 
   sortMatrix(matrix);
 

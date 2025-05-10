@@ -1,7 +1,7 @@
 CORES = $(shell nproc)
 MAKEFLAGS += --no-print-directory
 
-.PHONY: build clean remove-session
+.PHONY: build clean remove-session remove-outputs
 
 build:
 	mkdir -p build

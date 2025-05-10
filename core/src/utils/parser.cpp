@@ -1,3 +1,4 @@
+#include "utils/parser.hpp"
 #include <cstdio>
 #include "structures/matrix.hpp"
 #include "expected.hpp"
@@ -66,6 +67,14 @@ tl::expected<MatrixType, std::string> parseMatrixType(
     return tl::make_unexpected("Uknown typecode 3");
   }
 
+  if(!checkSupportedMatrixType(type)){
+    return tl::make_unexpected("Matrix type not supported!"); 
+  }
+
   return type;
+}
+
+bool checkSupportedMatrixType(const MatrixType type){
+  return (type & ~MatrixType_::supported_type) == 0; 
 }
 }

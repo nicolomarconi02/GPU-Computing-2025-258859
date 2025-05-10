@@ -27,9 +27,10 @@ add_executable(cpu_csr
 
 target_link_libraries(cpu_csr utils profiler)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
-
-add_executable(gpu_csr
-  ${CDIR}/executables/gpu_csr/main.cpp
-)
+if(COMPILE_GPU_EXEC)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
+  add_executable(gpu_csr
+    ${CDIR}/executables/gpu_csr/main.cpp
+  )
+endif()
 
