@@ -23,40 +23,54 @@ void storeMatrix(FILE* file, Matrix<T>& matrix) {
   int counterElem = 0;
   if (matrix.type & MatrixType_::pattern) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
-      fscanf(file, "%d %d\n", &matrix.rows[i], &matrix.columns[i]);
+      int ret = fscanf(file, "%d %d\n", &matrix.rows[i], &matrix.columns[i]);
+      if(ret == EOF){
+        break;
+      }
       matrix.values[i] = 1;
       matrix.rows[i]--;
       matrix.columns[i]--;
+      int newIndex = Utils::sortMatrixUntil(matrix, i);
       if (matrix.type & MatrixType_::symmetric &&
-          matrix.rows[i] != matrix.columns[i]) {
-        matrix.values[i + 1] = matrix.values[i];
-        matrix.rows[i + 1] = matrix.columns[i];
-        matrix.columns[i + 1] = matrix.rows[i];
+          matrix.rows[newIndex] != matrix.columns[newIndex]) {
+        matrix.values[i + 1] = matrix.values[newIndex];
+        matrix.rows[i + 1] = matrix.columns[newIndex];
+        matrix.columns[i + 1] = matrix.rows[newIndex];
         counterElem++;
         i++;
+        Utils::sortMatrixUntil(matrix, i);
       }
     }
   }
-  if (matrix.type & MatrixType_::array) {
+  else if (matrix.type & MatrixType_::array) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
-      fscanf(file, "%d %lg\n", &matrix.rows[i], &matrix.values[i]);
+      int ret = fscanf(file, "%d %lg\n", &matrix.rows[i], &matrix.values[i]);
+      if(ret == EOF){
+        break;
+      }
       matrix.rows[i]--;
       matrix.columns[i] = 0;
+      Utils::sortMatrixUntil(matrix, i);
     }
   }
-  if (matrix.type & MatrixType_::real || matrix.type & MatrixType_::integer) {
+  else if (matrix.type & MatrixType_::real || matrix.type & MatrixType_::integer) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
-      fscanf(file, "%d %d %lg\n", &matrix.rows[i], &matrix.columns[i],
+      int ret = fscanf(file, "%d %d %lg\n", &matrix.rows[i], &matrix.columns[i],
              &matrix.values[i]);
+      if(ret == EOF){
+        break;
+      }
       matrix.rows[i]--;
       matrix.columns[i]--;
+      int newIndex = Utils::sortMatrixUntil(matrix, i);
       if (matrix.type & MatrixType_::symmetric &&
-          matrix.rows[i] != matrix.columns[i]) {
-        matrix.values[i + 1] = matrix.values[i];
-        matrix.rows[i + 1] = matrix.columns[i];
-        matrix.columns[i + 1] = matrix.rows[i];
+          matrix.rows[newIndex] != matrix.columns[newIndex]) {
+        matrix.values[i + 1] = matrix.values[newIndex];
+        matrix.rows[i + 1] = matrix.columns[newIndex];
+        matrix.columns[i + 1] = matrix.rows[newIndex];
         counterElem++;
         i++;
+        Utils::sortMatrixUntil(matrix, i);
       }
     }
   }
@@ -99,8 +113,6 @@ tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
   matrix.type = retType.value();
 
   storeMatrix(inputFile, matrix);
-
-  sortMatrix(matrix);
 
   auto retCSR = matrix.computeCSR();
 
