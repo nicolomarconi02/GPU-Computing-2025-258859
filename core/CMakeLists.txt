@@ -27,23 +27,27 @@ add_executable(cpu_csr
 
 target_link_libraries(cpu_csr utils)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
+if(CUDA_FOUND)
+  message(STATUS "FOUND CUDA")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
 
-add_executable(gpu_csr
-  ${CDIR}/executables/gpu_csr/main.cu
-)
+  add_executable(gpu_csr
+    ${CDIR}/executables/gpu_csr/main.cu
+  )
 
 # add_library(gpu_operations 
 #   ${CDIR}/src/operations/gpu_matrix_vec.cu
 # )
 
-target_include_directories(gpu_csr 
-  PRIVATE
-  SYSTEM
-  ${EXTERNAL_DIRS}
-  ${CDIR}/src
-)
-target_link_libraries(gpu_csr utils)
+  target_include_directories(gpu_csr 
+    PRIVATE
+    SYSTEM
+    ${EXTERNAL_DIRS}
+    ${CDIR}/src
+  )
+  target_link_libraries(gpu_csr utils)
 
-set_target_properties(gpu_csr PROPERTIES CUDA_ARCHITECTURES "80")
+  set_target_properties(gpu_csr PROPERTIES CUDA_ARCHITECTURES "80")
 # set_target_properties(gpu_csr PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
+  

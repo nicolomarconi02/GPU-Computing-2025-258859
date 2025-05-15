@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
-project(SpMV LANGUAGES C CXX CUDA)
+project(SpMV LANGUAGES C CXX)
+
+find_package(CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CUDA_STANDARD 20)
-set(CMAKE_CUDA_STANDARD_REQUIRED True)
+
+if(CUDA_FOUND)
+  enable_language(CUDA)
+  set(CMAKE_CUDA_STANDARD 20)
+  set(CMAKE_CUDA_STANDARD_REQUIRED True)
+endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra")
 
