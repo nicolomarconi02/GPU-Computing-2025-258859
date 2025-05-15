@@ -40,7 +40,7 @@ int main(int argc, char** argv){
   std::cout << "start vec" << std::endl;
   std::cout << vec;
 
-  auto retMult = Operations::multiplication(retMatrix.value(), vec);
+  auto retMult = Operations::sequentialMultiplication(retMatrix.value(), vec);
   if(!retMult.has_value()){
     std::cerr << retMult.error() << std::endl;
     exit(4);

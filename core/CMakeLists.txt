@@ -17,7 +17,7 @@ add_library(profiler
 add_library(utils 
   ${CDIR}/src/utils/parser.cpp
 )
-target_link_libraries(utils PRIVATE mmio profiler)
+target_link_libraries(utils PUBLIC mmio profiler)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/cpu)
 
@@ -25,12 +25,25 @@ add_executable(cpu_csr
   ${CDIR}/executables/cpu_csr/main.cpp
 )
 
-target_link_libraries(cpu_csr utils profiler)
+target_link_libraries(cpu_csr utils)
 
-if(COMPILE_GPU_EXEC)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
-  add_executable(gpu_csr
-    ${CDIR}/executables/gpu_csr/main.cpp
-  )
-endif()
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${DIR}/bin/gpu)
 
+add_executable(gpu_csr
+  ${CDIR}/executables/gpu_csr/main.cu
+)
+
+# add_library(gpu_operations 
+#   ${CDIR}/src/operations/gpu_matrix_vec.cu
+# )
+
+target_include_directories(gpu_csr 
+  PRIVATE
+  SYSTEM
+  ${EXTERNAL_DIRS}
+  ${CDIR}/src
+)
+target_link_libraries(gpu_csr utils)
+
+set_target_properties(gpu_csr PROPERTIES CUDA_ARCHITECTURES "80")
+# set_target_properties(gpu_csr PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

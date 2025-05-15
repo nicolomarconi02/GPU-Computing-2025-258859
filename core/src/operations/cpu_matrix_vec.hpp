@@ -6,7 +6,7 @@
 
 namespace Operations {
 template <typename T>
-tl::expected<Matrix<T>, std::string> multiplication(const Matrix<T>& mat,
+tl::expected<Matrix<T>, std::string> sequentialMultiplication(const Matrix<T>& mat,
                                              const Matrix<T>& vec) {
   if(!(vec.type & MatrixType_::array)){
     return tl::make_unexpected("Cannot multiply. Vec must be an array!");

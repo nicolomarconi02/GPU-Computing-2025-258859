@@ -30,3 +30,7 @@ remove-outputs:
 		echo "Removing output_matrices folder";\
 		rm -rf output_matrices;\
 	fi;
+	@if [ -d output_run ]; then \
+		echo "Removing output_run folder";\
+		rm -rf output_run;\
+	fi;
