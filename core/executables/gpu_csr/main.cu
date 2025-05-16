@@ -59,10 +59,8 @@ int main(int argc, char **argv) {
   // std::cout << vec;
 
   Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
-  // const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-  // const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
-  const indexType_t N_BLOCKS = 1;
-  const indexType_t N_THREAD = 32;
+  const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+  const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
 
   indexType_t *csr, *columns;
   dataType_t *values, *array, *res1, *res2;

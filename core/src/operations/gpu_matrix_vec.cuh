@@ -13,24 +13,12 @@ __global__ void parallelMultiplication(indexType N, indexType* csr,
   }
   indexType count = 0;
   indexType beginRow = 0;
-  indexType stride = blockDim.x;
+  indexType stride = blockDim.x * gridDim.x;
   for (indexType i = startIndex; i <= N; i += stride) {
     count = csr[i - 1];
     beginRow = count;
-    // printf(
-    //     "thread: %d, blockDim: %d, blockIdx: %d, startIndex: %d, i: %d, "
-    //     "stride: %d, csr[i-1]: %d\n",
-    //     threadIdx.x, blockDim.x, blockIdx.x, startIndex, i, stride, csr[i - 1]);
     for (; count < beginRow + csr[i] - csr[i - 1]; count++) {
       res[i - 1] += values[count] * vec[columns[count]];
-      // printf("thread: %d, count: %d, beginRow: %d, i: %d, res[i-1]: %d\n",
-      // threadIdx.x, count, beginRow,
-      //        i, res[i - 1]);
-      printf(
-          "thread: %d, blockDim: %d, blockIdx: %d, startIndex: %d, i: %d, "
-          "stride: %d, count: %d, csr[i-1]: %d\n",
-          threadIdx.x, blockDim.x, blockIdx.x, startIndex, i, stride, count,
-          csr[i - 1]);
     }
   }
 }
