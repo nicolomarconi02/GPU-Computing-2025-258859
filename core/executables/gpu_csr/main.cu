@@ -30,38 +30,39 @@ int main(int argc, char **argv) {
 
   std::cout << "GPU-CSR" << std::endl;
 
-  auto retMatrix = Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[1]);
+  auto retMatrix =
+      Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[1]);
 
   if (!retMatrix.has_value()) {
     std::cerr << retMatrix.error() << std::endl;
     exit(3);
   }
 
-  std::cout << "retmat csr: " << std::endl;
-  for (int i = 0; i < retMatrix.value().N_ROWS + 1; i++) {
-    std::cout << retMatrix.value().csr[i] << " ";
-  }
+  Utils::parallelSort(retMatrix.value());
+  retMatrix.value().computeCSR();
 
   Matrix<indexType_t, dataType_t> matrix = std::move(retMatrix.value());
 
-  std::cout << "matrix csr: " << std::endl;
-  for (int i = 0; i < matrix.N_ROWS + 1; i++) {
-    std::cout << matrix.csr[i] << " ";
-  }
+  std::cout << "matrix csr: " << matrix.csr[matrix.N_ROWS] << std::endl;
+  // for (int i = 0; i < matrix.N_ROWS + 1; i++) {
+  //   std::cout << matrix.csr[i] << " ";
+  // }
 
   Matrix<indexType_t, dataType_t> vec(MatrixType_::array, matrix.N_ELEM);
   for (int i = 0; i < matrix.N_ELEM; i++) {
     vec.values[i] = 1;
   }
 
-  std::cout << matrix << std::endl;
-
-  std::cout << "start vec" << std::endl;
-  std::cout << vec;
+  // std::cout << matrix << std::endl;
+  //
+  // std::cout << "start vec" << std::endl;
+  // std::cout << vec;
 
   Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
-  const uint8_t N_THREAD = 16;
-  const uint8_t N_BLOCKS = 1;
+  // const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+  // const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+  const indexType_t N_BLOCKS = 1;
+  const indexType_t N_THREAD = 32;
 
   indexType_t *csr, *columns;
   dataType_t *values, *array, *res1, *res2;
@@ -80,12 +81,14 @@ int main(int argc, char **argv) {
   CUDA_CHECK(cudaMalloc(&res2, matrix.N_ROWS * sizeof(dataType_t)));
 
   // GPU copy
-  CUDA_CHECK(cudaMemcpy(csr, matrix.csr, (matrix.N_ROWS + 1) * sizeof(indexType_t),
+  CUDA_CHECK(cudaMemcpy(csr, matrix.csr,
+                        (matrix.N_ROWS + 1) * sizeof(indexType_t),
                         cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(columns, matrix.columns,
                         matrix.N_ELEM * sizeof(indexType_t),
                         cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(values, matrix.values, matrix.N_ELEM * sizeof(dataType_t),
+  CUDA_CHECK(cudaMemcpy(values, matrix.values,
+                        matrix.N_ELEM * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(array, vec.values, matrix.N_ELEM * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
@@ -95,28 +98,28 @@ int main(int argc, char **argv) {
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
             << std::endl;
   {
-    ScopeProfiler("multiplication");
+    ScopeProfiler pMult("multiplication");
     Operations::parallelMultiplication<<<N_BLOCKS, N_THREAD>>>(
-        matrix.N_ROWS, csr, columns, values, array, res2);
+        (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
     cudaDeviceSynchronize();
   }
 
   cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dataType_t),
              cudaMemcpyDeviceToHost);
 
-  std::cout << "res: " << std::endl;
-  for (int i = 0; i < matrix.N_ROWS; i++) {
-    std::cout << resMat.values[i] << " ";
-  }
-  std::cout << std::endl;
+  // std::cout << "res: " << std::endl;
+  // for (int i = 0; i < matrix.N_ROWS; i++) {
+  //   std::cout << resMat.values[i] << " ";
+  // }
+  // std::cout << std::endl;
 
   std::cout << "save: " << std::endl;
   Utils::saveResultsToFile(matrix, vec, resMat);
-  cudaFree(csr);
-  cudaFree(columns);
-  cudaFree(values);
-  cudaFree(array);
+  CUDA_CHECK(cudaFree(csr));
+  CUDA_CHECK(cudaFree(columns));
+  CUDA_CHECK(cudaFree(values));
+  CUDA_CHECK(cudaFree(array));
+  CUDA_CHECK(cudaFree(res2));
   free(res1);
-  cudaFree(res2);
   return 0;
 }

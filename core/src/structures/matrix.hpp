@@ -177,19 +177,19 @@ class Matrix {
 
   friend std::ostream& operator<<(std::ostream& os, const Matrix<indexType, dataType>& mat) {
     if (mat.type & MatrixType_::array) {
-      int total = 0;
-      for (int i = 0; i < mat.N_ELEM; i++) {
+      dataType total = 0;
+      for (indexType i = 0; i < mat.N_ELEM; i++) {
         os << mat.values[i] << " ";
         total += mat.values[i];
       }
       os << std::endl << "TOTAL " << total << std::endl;
     } else {
-      for (int i = 0; i < mat.N_ELEM; i++) {
+      for (indexType i = 0; i < mat.N_ELEM; i++) {
         os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]
            << std::endl;
       }
       os << "\nCSR\n";
-      for (int i = 0; i <= mat.N_ROWS; i++) {
+      for (indexType i = 0; i <= mat.N_ROWS; i++) {
         os << mat.csr[i] << " ";
       }
       os << std::endl;

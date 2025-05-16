@@ -38,10 +38,10 @@ int main(int argc, char** argv){
     vec.values[i] = 1;
   }
 
-  std::cout << retMatrix.value() << std::endl;
-  
-  std::cout << "start vec" << std::endl;
-  std::cout << vec;
+  std::cout << "CSR: " << retMatrix.value().csr[retMatrix.value().N_ROWS] << std::endl;
+  // 
+  // std::cout << "start vec" << std::endl;
+  // std::cout << vec;
 
   auto retMult = Operations::sequentialMultiplication(retMatrix.value(), vec);
   if(!retMult.has_value()){
@@ -49,8 +49,8 @@ int main(int argc, char** argv){
     exit(4);
   }
   
-  std::cout << "ret vec" << std::endl;
-  std::cout << retMult.value();
+  // std::cout << "ret vec" << std::endl;
+  // std::cout << retMult.value();
   Utils::saveResultsToFile(retMatrix.value(), vec, retMult.value());
   return 0;
 }
