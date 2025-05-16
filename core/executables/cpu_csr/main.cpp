@@ -7,7 +7,8 @@
 #include "operations/cpu_matrix_vec.hpp"
 #include "profiler/profiler.hpp"
 
-typedef double dtype_t;
+typedef uint32_t indexType_t;
+typedef double dataType_t;
 
 Mode executionMode = Mode_::CPU;
 
@@ -25,14 +26,14 @@ int main(int argc, char** argv){
 
   std::cout << "CPU-CSR" << std::endl;
 
-  auto retMatrix = Utils::parseMatrixMarketFile<dtype_t>(argv[1]);
+  auto retMatrix = Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[1]);
 
   if(!retMatrix.has_value()){
     std::cerr << retMatrix.error() << std::endl;
     exit(3);
   }
 
-  Matrix<dtype_t> vec(MatrixType_::array, retMatrix.value().N_ELEM);
+  Matrix<indexType_t, dataType_t> vec(MatrixType_::array, retMatrix.value().N_ELEM);
   for(int i = 0; i < retMatrix.value().N_ELEM; i++){
     vec.values[i] = 1;
   }

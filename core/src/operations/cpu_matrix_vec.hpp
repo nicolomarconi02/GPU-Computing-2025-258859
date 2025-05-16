@@ -5,14 +5,14 @@
 #include "profiler/profiler.hpp"
 
 namespace Operations {
-template <typename T>
-tl::expected<Matrix<T>, std::string> sequentialMultiplication(const Matrix<T>& mat,
-                                             const Matrix<T>& vec) {
+template <typename indexType, typename dataType>
+tl::expected<Matrix<indexType, dataType>, std::string> sequentialMultiplication(const Matrix<indexType, dataType>& mat,
+                                             const Matrix<indexType, dataType>& vec) {
   if(!(vec.type & MatrixType_::array)){
     return tl::make_unexpected("Cannot multiply. Vec must be an array!");
   }
   ScopeProfiler prof("multiplication");
-  Matrix<T> res(MatrixType_::array, mat.N_ROWS);
+  Matrix<indexType, dataType> res(MatrixType_::array, mat.N_ROWS);
   int count = 0;
   int beginRow = 0;
   for (int i = 1; i <= mat.N_ROWS; i++) {

@@ -25,8 +25,8 @@ tl::expected<MatrixType, std::string> parseMatrixType(
 
 bool checkSupportedMatrixType(const MatrixType type);
 
-template <typename T>
-void storeMatrix(FILE* file, Matrix<T>& matrix) {
+template <typename indexType, typename dataType>
+void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
   int counterElem = 0;
   if (matrix.type & MatrixType_::pattern) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
@@ -100,8 +100,8 @@ void storeMatrix(FILE* file, Matrix<T>& matrix) {
   }
 }
 
-template <typename T>
-tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
+template <typename indexType, typename dataType>
+tl::expected<Matrix<indexType, dataType>, std::string> parseMatrixMarketFile(
     const std::string& path) {
   ScopeProfiler prof("parseMatrixMarketFile");
   FILE* inputFile = fopen(path.c_str(), "r");
@@ -129,7 +129,7 @@ tl::expected<Matrix<T>, std::string> parseMatrixMarketFile(
       N_ELEM *= 2;
     }
   }
-  Matrix<T> matrix(N_ROWS, N_COLS, N_ELEM);
+  Matrix<indexType, dataType> matrix(N_ROWS, N_COLS, N_ELEM);
   matrix.type = retType.value();
 
   storeMatrix(inputFile, matrix);

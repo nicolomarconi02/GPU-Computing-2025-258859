@@ -9,20 +9,12 @@
 #include "profiler/profiler.hpp"
 #include "operations/gpu_matrix_vec.cuh"
 #include "utils/sort_matrix_parallel.cuh"
+#include "utils/cuda_utils.cuh"
 
 Mode executionMode = Mode_::GPU;
 
-#define CUDA_CHECK(call)                                                       \
-  {                                                                            \
-    cudaError_t err = call;                                                    \
-    if (err != cudaSuccess) {                                                  \
-      std::cerr << "CUDA error in " << #call << ": "                           \
-                << cudaGetErrorString(err) << " (" << err << ")" << std::endl; \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
-  }
-
-typedef double dtype_t;
+typedef uint32_t indexType_t;
+typedef double dataType_t;
 
 int main(int argc, char **argv) {
   ScopeProfiler prof("main");
@@ -38,7 +30,7 @@ int main(int argc, char **argv) {
 
   std::cout << "GPU-CSR" << std::endl;
 
-  auto retMatrix = Utils::parseMatrixMarketFile<dtype_t>(argv[1]);
+  auto retMatrix = Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[1]);
 
   if (!retMatrix.has_value()) {
     std::cerr << retMatrix.error() << std::endl;
@@ -50,14 +42,14 @@ int main(int argc, char **argv) {
     std::cout << retMatrix.value().csr[i] << " ";
   }
 
-  Matrix<dtype_t> matrix = std::move(retMatrix.value());
+  Matrix<indexType_t, dataType_t> matrix = std::move(retMatrix.value());
 
   std::cout << "matrix csr: " << std::endl;
   for (int i = 0; i < matrix.N_ROWS + 1; i++) {
     std::cout << matrix.csr[i] << " ";
   }
 
-  Matrix<dtype_t> vec(MatrixType_::array, matrix.N_ELEM);
+  Matrix<indexType_t, dataType_t> vec(MatrixType_::array, matrix.N_ELEM);
   for (int i = 0; i < matrix.N_ELEM; i++) {
     vec.values[i] = 1;
   }
@@ -67,37 +59,37 @@ int main(int argc, char **argv) {
   std::cout << "start vec" << std::endl;
   std::cout << vec;
 
-  Matrix<dtype_t> resMat(MatrixType_::array, matrix.N_ROWS);
+  Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
   const uint8_t N_THREAD = 16;
   const uint8_t N_BLOCKS = 1;
 
-  uint32_t *csr, *columns;
-  dtype_t *values, *array, *res1, *res2;
+  indexType_t *csr, *columns;
+  dataType_t *values, *array, *res1, *res2;
   // GPU allocation
-  CUDA_CHECK(cudaMalloc(&csr, (matrix.N_ROWS + 1) * sizeof(uint32_t)));
-  CUDA_CHECK(cudaMalloc(&columns, matrix.N_ELEM * sizeof(uint32_t)));
-  CUDA_CHECK(cudaMalloc(&values, matrix.N_ELEM * sizeof(dtype_t)));
-  CUDA_CHECK(cudaMalloc(&array, matrix.N_ELEM * sizeof(dtype_t)));
+  CUDA_CHECK(cudaMalloc(&csr, (matrix.N_ROWS + 1) * sizeof(indexType_t)));
+  CUDA_CHECK(cudaMalloc(&columns, matrix.N_ELEM * sizeof(indexType_t)));
+  CUDA_CHECK(cudaMalloc(&values, matrix.N_ELEM * sizeof(dataType_t)));
+  CUDA_CHECK(cudaMalloc(&array, matrix.N_ELEM * sizeof(dataType_t)));
 
-  res1 = (dtype_t *)calloc(matrix.N_ROWS, sizeof(dtype_t));
+  res1 = (dataType_t *)calloc(matrix.N_ROWS, sizeof(dataType_t));
   if (!res1) {
     std::cerr << "Calloc error on res1!" << std::endl;
     return EXIT_FAILURE;
   }
 
-  CUDA_CHECK(cudaMalloc(&res2, matrix.N_ROWS * sizeof(dtype_t)));
+  CUDA_CHECK(cudaMalloc(&res2, matrix.N_ROWS * sizeof(dataType_t)));
 
   // GPU copy
-  CUDA_CHECK(cudaMemcpy(csr, matrix.csr, (matrix.N_ROWS + 1) * sizeof(uint32_t),
+  CUDA_CHECK(cudaMemcpy(csr, matrix.csr, (matrix.N_ROWS + 1) * sizeof(indexType_t),
                         cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(columns, matrix.columns,
-                        matrix.N_ELEM * sizeof(uint32_t),
+                        matrix.N_ELEM * sizeof(indexType_t),
                         cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(values, matrix.values, matrix.N_ELEM * sizeof(dtype_t),
+  CUDA_CHECK(cudaMemcpy(values, matrix.values, matrix.N_ELEM * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(array, vec.values, matrix.N_ELEM * sizeof(dtype_t),
+  CUDA_CHECK(cudaMemcpy(array, vec.values, matrix.N_ELEM * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(res2, res1, matrix.N_ROWS * sizeof(dtype_t),
+  CUDA_CHECK(cudaMemcpy(res2, res1, matrix.N_ROWS * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
 
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
@@ -109,7 +101,7 @@ int main(int argc, char **argv) {
     cudaDeviceSynchronize();
   }
 
-  cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dtype_t),
+  cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dataType_t),
              cudaMemcpyDeviceToHost);
 
   std::cout << "res: " << std::endl;

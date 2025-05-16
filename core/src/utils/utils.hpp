@@ -10,18 +10,18 @@
 
 namespace Utils {
 
-template <typename T>
-void printVector(const T* vec, int size) {
+template <typename dataType>
+void printVector(const dataType* vec, int size) {
   for (int i = 0; i < size; i++) {
     std::cout << vec[i] << " ";
   }
   std::cout << std::endl;
 }
 
-template <typename T>
-tl::expected<bool, std::string> saveResultsToFile(Matrix<T>& matrix,
-                                                  Matrix<T>& vector,
-                                                  Matrix<T>& result) {
+template <typename indexType, typename dataType>
+tl::expected<bool, std::string> saveResultsToFile(Matrix<indexType, dataType>& matrix,
+                                                  Matrix<indexType, dataType>& vector,
+                                                  Matrix<indexType, dataType>& result) {
   if (!std::filesystem::exists(MATRICES_OUTPUT_PATH)) {
     std::filesystem::create_directory(MATRICES_OUTPUT_PATH);
   }

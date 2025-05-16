@@ -30,44 +30,44 @@ enum MatrixType_ : uint16_t {
   supported_type = matrix | coordinate | array | dense | sparse | real | integer | general | symmetric | pattern
 };
 
-template <typename T>
+template <typename indexType, typename dataType>
 class Matrix {
  public:
   Matrix(int _N_ROWS, int _N_COLS, int _N_ELEM)
       : N_ROWS(_N_ROWS), N_COLS(_N_COLS), N_ELEM(_N_ELEM) {
-    rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-    columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-    values = (T*)malloc(N_ELEM * sizeof(T));
+    rows = (indexType*)malloc(N_ELEM * sizeof(indexType));
+    columns = (indexType*)malloc(N_ELEM * sizeof(indexType));
+    values = (dataType*)malloc(N_ELEM * sizeof(dataType));
   }
 
   Matrix(MatrixType _type, int _N_ELEM) : N_ELEM(_N_ELEM) {
     if (_type & MatrixType_::array) {
       type = _type;
-      values = (T*)calloc(N_ELEM, sizeof(T));
+      values = (dataType*)calloc(N_ELEM, sizeof(dataType));
     }
   }
 
   ~Matrix() { freeMatrix(); }
-  Matrix(const Matrix<T>& other)
+  Matrix(const Matrix<indexType, dataType>& other)
       : N_ROWS(other.N_ROWS),
         N_COLS(other.N_COLS),
         N_ELEM(other.N_ELEM),
         type(other.type) {
-    rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-    columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-    values = (T*)malloc(N_ELEM * sizeof(T));
+    rows = (indexType*)malloc(N_ELEM * sizeof(indexType));
+    columns = (indexType*)malloc(N_ELEM * sizeof(indexType));
+    values = (dataType*)malloc(N_ELEM * sizeof(dataType));
     std::copy(other.rows, other.rows + N_ELEM, rows);
     std::copy(other.columns, other.columns + N_ELEM, columns);
     std::copy(other.values, other.values + N_ELEM, values);
 
     if (other.csr) {
-      csr = (uint32_t*)malloc((N_ROWS + 1) * sizeof(uint32_t));
+      csr = (indexType*)malloc((N_ROWS + 1) * sizeof(indexType));
       std::copy(other.csr, other.csr + N_ROWS + 1, csr);
     } else {
       csr = nullptr;
     }
   }
-  Matrix(Matrix<T>&& other) noexcept
+  Matrix(Matrix<indexType, dataType>&& other) noexcept
       : N_ROWS(other.N_ROWS),
         N_COLS(other.N_COLS),
         N_ELEM(other.N_ELEM),
@@ -81,7 +81,7 @@ class Matrix {
     other.values = nullptr;
     other.csr = nullptr;
   }
-  Matrix& operator=(const Matrix<T>& other) {
+  Matrix& operator=(const Matrix<indexType, dataType>& other) {
     if (this != &other) {
       freeMatrix();
 
@@ -90,15 +90,15 @@ class Matrix {
       N_ELEM = other.N_ELEM;
       type = other.type;
 
-      rows = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-      columns = (uint32_t*)malloc(N_ELEM * sizeof(uint32_t));
-      values = (T*)malloc(N_ELEM * sizeof(T));
+      rows = (indexType*)malloc(N_ELEM * sizeof(indexType));
+      columns = (indexType*)malloc(N_ELEM * sizeof(indexType));
+      values = (dataType*)malloc(N_ELEM * sizeof(dataType));
       std::copy(other.rows, other.rows + N_ELEM, rows);
       std::copy(other.columns, other.columns + N_ELEM, columns);
       std::copy(other.values, other.values + N_ELEM, values);
 
       if (other.csr) {
-        csr = (uint32_t*)malloc((N_ROWS + 1) * sizeof(uint32_t));
+        csr = (indexType*)malloc((N_ROWS + 1) * sizeof(indexType));
         std::copy(other.csr, other.csr + N_ROWS + 1, csr);
       } else {
         csr = nullptr;
@@ -106,7 +106,7 @@ class Matrix {
     }
     return *this;
   }
-  Matrix& operator=(Matrix<T>&& other) noexcept {
+  Matrix& operator=(Matrix<indexType, dataType>&& other) noexcept {
     if (this != &other) {
       freeMatrix();
 
@@ -146,13 +146,13 @@ class Matrix {
     if (type & MatrixType_::array) {
       return tl::make_unexpected("Cannot compute CSR for an array");
     }
-    csr = (uint32_t*)calloc(N_ROWS + 1, sizeof(uint32_t));
+    csr = (indexType*)calloc(N_ROWS + 1, sizeof(indexType));
     if (!csr) {
       return tl::make_unexpected("Memory allocation for CSR failed");
     }
 
     for (int i = 0; i < N_ELEM; i++) {
-      if (rows[i] >= static_cast<uint32_t>(N_ROWS)) {
+      if (rows[i] >= static_cast<indexType>(N_ROWS)) {
         return tl::make_unexpected("Rows index exceed limits");
       }
       csr[rows[i] + 1]++;
@@ -166,16 +166,16 @@ class Matrix {
   }
 
   MatrixType type = 0;
-  uint32_t* csr = nullptr;
-  uint32_t* rows = nullptr;
-  uint32_t* columns = nullptr;
-  T* values = nullptr;
+  indexType* csr = nullptr;
+  indexType* rows = nullptr;
+  indexType* columns = nullptr;
+  dataType* values = nullptr;
 
   int N_ROWS = 0;
   int N_COLS = 0;
   int N_ELEM = 0;
 
-  friend std::ostream& operator<<(std::ostream& os, const Matrix<T>& mat) {
+  friend std::ostream& operator<<(std::ostream& os, const Matrix<indexType, dataType>& mat) {
     if (mat.type & MatrixType_::array) {
       int total = 0;
       for (int i = 0; i < mat.N_ELEM; i++) {
