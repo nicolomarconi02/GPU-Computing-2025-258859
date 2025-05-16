@@ -8,6 +8,9 @@
 #include "operations/cpu_matrix_vec.hpp"
 #include "profiler/profiler.hpp"
 #include "operations/gpu_matrix_vec.cuh"
+#include "utils/sort_matrix_parallel.cuh"
+
+Mode executionMode = Mode_::GPU;
 
 #define CUDA_CHECK(call)                                                       \
   {                                                                            \

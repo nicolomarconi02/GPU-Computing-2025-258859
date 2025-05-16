@@ -9,6 +9,8 @@
 
 typedef double dtype_t;
 
+Mode executionMode = Mode_::CPU;
+
 int main(int argc, char** argv){
   ScopeProfiler prof("main");
   if(argc != 2){
