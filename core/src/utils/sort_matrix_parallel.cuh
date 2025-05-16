@@ -93,8 +93,8 @@ void parallelSort(Matrix<indexType, dataType>& matrix) {
   free(indexPadding);
   free(valuesPadding);
 
-  const indexType N_BLOCKS = COMPUTE_N_BLOCKS(indexType, matrix.N_ROWS);
-  const indexType N_THREAD = COMPUTE_N_THREAD(indexType, matrix.N_ROWS);
+  const indexType N_BLOCKS = COMPUTE_N_BLOCKS(indexType, size);
+  const indexType N_THREAD = COMPUTE_N_THREAD(indexType, size);
 
   for (indexType sequenceSize = 2; sequenceSize <= size; sequenceSize <<= 1) {
     for (indexType distance = sequenceSize >> 1; distance > 0; distance >>= 1) {
