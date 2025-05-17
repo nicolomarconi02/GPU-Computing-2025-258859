@@ -1,6 +1,13 @@
 #pragma once
 
+#include <cstdint>
 namespace Operations {
+enum MultiplicationTypes : uint8_t {
+  ThreadPerRow = 0,
+  ElementWise = 1,
+  Warp = 2,
+  SIZE
+};
 template <typename indexType, typename dataType>
 __global__ void parallelMultiplicationThreadPerRow(indexType N, indexType* csr,
                                                    indexType* columns,

@@ -1,11 +1,11 @@
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <filesystem>
 #include "utils/parser.hpp"
 #include "structures/matrix.hpp"
 #include "utils/utils.hpp"
-#include "operations/cpu_matrix_vec.hpp"
 #include "profiler/profiler.hpp"
 #include "operations/gpu_matrix_vec.cuh"
 #include "utils/sort_matrix_parallel.cuh"
@@ -18,24 +18,34 @@ typedef double dataType_t;
 
 int main(int argc, char **argv) {
   ScopeProfiler prof("main");
-  if (argc != 2) {
-    std::cerr << "Usage: ./gpu_csr <path_to_mtx_file>" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage: ./gpu_csr <select_operation> <path_to_mtx_file>"
+              << std::endl;
     exit(1);
   }
 
-  if (!std::filesystem::is_regular_file(argv[1])) {
-    std::cerr << argv[1] << " is not a file" << std::endl;
+  uint8_t operationSelected = std::atoi(argv[1]);
+  if (operationSelected >= Operations::MultiplicationTypes::SIZE) {
+    std::cerr << "Error uknown operation! Insert:" << std::endl
+              << "0 -> thread per row multiplication" << std::endl
+              << "1 -> element wise multiplication" << std::endl
+              << "2 -> warp multiplication" << std::endl;
     exit(2);
+  }
+
+  if (!std::filesystem::is_regular_file(argv[2])) {
+    std::cerr << argv[2] << " is not a file" << std::endl;
+    exit(3);
   }
 
   std::cout << "GPU-CSR" << std::endl;
 
   auto retMatrix =
-      Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[1]);
+      Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);
 
   if (!retMatrix.has_value()) {
     std::cerr << retMatrix.error() << std::endl;
-    exit(3);
+    exit(4);
   }
 
   Utils::parallelSort(retMatrix.value());
@@ -51,13 +61,6 @@ int main(int argc, char **argv) {
   }
 
   Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
-
-  // const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-  // const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
-
-  const indexType_t N_WARPS = 4;
-  const indexType_t N_THREAD = N_WARPS * 32;
-  const indexType_t N_BLOCKS = (matrix.N_ROWS + N_WARPS - 1) / N_WARPS;
 
   indexType_t *csr, *columns;
   dataType_t *values, *array, *res1, *res2;
@@ -92,17 +95,34 @@ int main(int argc, char **argv) {
 
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
             << std::endl;
-  {
-    ScopeProfiler pMult("multiplication", 2 * matrix.N_ELEM);
-    // Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
-    //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
-    
-    // Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
-    //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
-
-    Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
-        (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
-    cudaDeviceSynchronize();
+  switch (operationSelected) {
+    case Operations::MultiplicationTypes::ThreadPerRow: {
+      const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+      const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+      ScopeProfiler pMult("multiplication-thread-per-row", 2 * matrix.N_ELEM);
+      Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
+          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+      cudaDeviceSynchronize();
+    } break;
+    case Operations::MultiplicationTypes::ElementWise: {
+      const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+      const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+      ScopeProfiler pMult("multiplication-element-wise", 2 * matrix.N_ELEM);
+      Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
+          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+      cudaDeviceSynchronize();
+    } break;
+    case Operations::MultiplicationTypes::Warp: {
+      const indexType_t N_WARPS = 4;
+      const indexType_t N_THREAD = N_WARPS * 32;
+      const indexType_t N_BLOCKS = (matrix.N_ROWS + N_WARPS - 1) / N_WARPS;
+      ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM);
+      Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
+          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+      cudaDeviceSynchronize();
+    } break;
+    default:
+      std::cerr << "Uknown operation!" << std::endl;
   }
 
   cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dataType_t),

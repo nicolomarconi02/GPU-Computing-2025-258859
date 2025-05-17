@@ -7,3 +7,7 @@
 
 #define GPU_MAX_N_THREAD 1024U
 #define GPU_MAX_N_BLOCKS 1024U
+
+#define GPU_FP32_THROUGHPUT 91.6                        // TFLOP/s
+#define GPU_FP64_THROUGHPUT GPU_FP32_THROUGHPUT / 64.0  // TFLOP/s
+#define GPU_MEMORY_BANDWIDTH 864.0                      // GB/s
