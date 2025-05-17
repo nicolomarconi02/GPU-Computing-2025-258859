@@ -21,7 +21,8 @@ int main(int argc, char** argv) {
   uint8_t operationSelected = std::atoi(argv[1]);
   if (operationSelected >= Operations::MultiplicationTypes::SIZE) {
     std::cerr << "Error uknown operation! Insert:" << std::endl
-              << "0 -> sequential multiplication" << std::endl;
+              << "0 -> sequential multiplication" << std::endl
+              << "1 -> parallel multiplication" << std::endl;
     exit(2);
   }
 
@@ -57,6 +58,18 @@ int main(int argc, char** argv) {
                          2 * retMatrix.value().N_ELEM, N_BYTES);
       auto retMult =
           Operations::sequentialMultiplication(retMatrix.value(), vec);
+      if (!retMult.has_value()) {
+        std::cerr << retMult.error() << std::endl;
+        exit(5);
+      }
+      result = std::move(retMult.value());
+    } break;
+    case Operations::MultiplicationTypes::Parallel: {
+      const indexType_t N_BYTES = retMatrix.value().N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t)) + retMatrix.value().N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)); 
+      ScopeProfiler prof("multiplication-parallel",
+                         2 * retMatrix.value().N_ELEM, N_BYTES);
+      auto retMult =
+          Operations::parallelMultiplication(retMatrix.value(), vec);
       if (!retMult.has_value()) {
         std::cerr << retMult.error() << std::endl;
         exit(5);

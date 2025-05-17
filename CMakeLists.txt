@@ -12,7 +12,7 @@ if(CUDA_FOUND)
   set(CMAKE_CUDA_STANDARD_REQUIRED True)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -fopenmp -ffast-math -g -Wall -Wextra")
 
 set(DIR ${CMAKE_CURRENT_LIST_DIR})
 set(USER_HOME $ENV{HOME})

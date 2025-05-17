@@ -4,7 +4,7 @@
 #include "expected.hpp"
 
 namespace Operations {
-enum MultiplicationTypes : uint8_t { Sequential = 0, SIZE };
+enum MultiplicationTypes : uint8_t { Sequential = 0, Parallel = 1, SIZE };
 template <typename indexType, typename dataType>
 tl::expected<Matrix<indexType, dataType>, std::string> sequentialMultiplication(
     const Matrix<indexType, dataType>& mat,
@@ -13,6 +13,29 @@ tl::expected<Matrix<indexType, dataType>, std::string> sequentialMultiplication(
     return tl::make_unexpected("Cannot multiply. Vec must be an array!");
   }
   Matrix<indexType, dataType> res(MatrixType_::array, mat.N_ROWS);
+  for (indexType i = 1; i <= mat.N_ROWS; i++) {
+    indexType rowStart = mat.csr[i - 1];
+    indexType rowEnd = mat.csr[i];
+
+    dataType sum = 0;
+    for (indexType j = rowStart; j < rowEnd; j++) {
+      sum += mat.values[j] * vec.values[mat.columns[j]];
+    }
+    res.values[i - 1] = sum;
+  }
+  return res;
+}
+
+template <typename indexType, typename dataType>
+tl::expected<Matrix<indexType, dataType>, std::string> parallelMultiplication(
+    const Matrix<indexType, dataType>& mat,
+    const Matrix<indexType, dataType>& vec) {
+  if (!(vec.type & MatrixType_::array)) {
+    return tl::make_unexpected("Cannot multiply. Vec must be an array!");
+  }
+  Matrix<indexType, dataType> res(MatrixType_::array, mat.N_ROWS);
+
+#pragma omp parallel for
   for (indexType i = 1; i <= mat.N_ROWS; i++) {
     indexType rowStart = mat.csr[i - 1];
     indexType rowEnd = mat.csr[i];
