@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sys/types.h>
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -17,6 +18,7 @@ struct measure_t {
   std::string id;
   double duration;
   uint64_t FLOPS;
+  uint64_t BYTES;
 
   friend std::ostream& operator<<(std::ostream& os, const measure_t& measure) {
     os << measure.id << ": " << measure.duration << std::endl;
@@ -29,7 +31,7 @@ class Profiler{
     Profiler();
     ~Profiler();
   static Profiler& getProfiler();
-  void addMeasure(const std::string& id, const time_point& start, const time_point& stop, uint64_t FLOPS);
+  void addMeasure(const std::string& id, const time_point& start, const time_point& stop, uint64_t FLOPS, uint64_t BYTES);
 
   private:
   void computeCalculations();
@@ -44,11 +46,12 @@ class Profiler{
 class ScopeProfiler{
   public:
   ScopeProfiler(const std::string& _id);
-  ScopeProfiler(const std::string& _id, uint64_t FLOPS);
+  ScopeProfiler(const std::string& _id, uint64_t FLOPS, uint64_t BYTES);
   ~ScopeProfiler();
   private:
     Profiler* profiler;
     time_point start;
     std::string id;
     uint64_t FLOPS;
+    uint64_t BYTES;
 };

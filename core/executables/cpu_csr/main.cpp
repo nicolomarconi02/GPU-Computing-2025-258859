@@ -54,8 +54,9 @@ int main(int argc, char** argv) {
                                          retMatrix.value().N_ROWS);
   switch (operationSelected) {
     case Operations::MultiplicationTypes::Sequential: {
+      const indexType_t N_BYTES = retMatrix.value().N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t)) + retMatrix.value().N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)); 
       ScopeProfiler prof("multiplication-sequential",
-                         2 * retMatrix.value().N_ELEM);
+                         2 * retMatrix.value().N_ELEM, N_BYTES);
       auto retMult =
           Operations::sequentialMultiplication(retMatrix.value(), vec);
       if (!retMult.has_value()) {

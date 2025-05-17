@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <sys/time.h>
+#include <sys/types.h>
 
 #include "defines.hpp"
 
@@ -40,16 +41,19 @@ inline uint64_t getTimestampMicroseconds() {
   return tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-ScopeProfiler::ScopeProfiler(const std::string& _id, uint64_t _FLOPS)
-    : id(_id), FLOPS(_FLOPS) {
+ScopeProfiler::ScopeProfiler(const std::string& _id, uint64_t _FLOPS,
+                             uint64_t _BYTES)
+    : id(_id), FLOPS(_FLOPS), BYTES(_BYTES) {
   profiler = &Profiler::getProfiler();
   start = std::chrono::steady_clock::now();
 }
 
-ScopeProfiler::ScopeProfiler(const std::string& _id) : ScopeProfiler(_id, 0) {}
+ScopeProfiler::ScopeProfiler(const std::string& _id)
+    : ScopeProfiler(_id, 0, 0) {}
 
 ScopeProfiler::~ScopeProfiler() {
-  profiler->addMeasure(id, start, std::chrono::steady_clock::now(), FLOPS);
+  profiler->addMeasure(id, start, std::chrono::steady_clock::now(), FLOPS,
+                       BYTES);
 }
 
 Profiler::Profiler() {
@@ -82,7 +86,8 @@ Profiler& Profiler::getProfiler() {
 }
 
 void Profiler::addMeasure(const std::string& id, const time_point& start,
-                          const time_point& stop, uint64_t FLOPS) {
+                          const time_point& stop, uint64_t FLOPS,
+                          uint64_t BYTES) {
   if (!initialized) {
     return;
   }
@@ -91,6 +96,7 @@ void Profiler::addMeasure(const std::string& id, const time_point& start,
   record.id = id;
   record.duration = getDeltaSecs(stop - start);
   record.FLOPS = FLOPS;
+  record.BYTES = BYTES;
 
   auto it = sessions.find(id);
   if (it == sessions.end()) {
@@ -111,17 +117,35 @@ void Profiler::computeCalculations() {
   for (const auto& [key, vec] : sessions) {
     uint64_t totalFLOPS = 0;
     double totalDuration = 0.0;
+    uint64_t totalBYTES = 0;
     outputFile << "________________________________" << std::endl
                << key << std::endl;
     for (const auto& measure : vec) {
       totalFLOPS += measure.FLOPS;
       totalDuration += measure.duration;
+      totalBYTES += measure.BYTES;
 
       outputFile << measure.id
                  << " GFLOPS/s: " << measure.FLOPS / (measure.duration * 1e9)
-                 << std::endl;
+                 << " bandwidth: " << measure.BYTES / (measure.duration * 1e9)
+                 << " GB/s" << std::endl;
     }
 
-    outputFile << "TOTAL GFLOPS/s: " << totalFLOPS / (totalDuration * 1e9) << std::endl;
+    double estimatedFLOPS = totalFLOPS / (totalDuration * 1e9);
+    double estimatedBandwidth = totalBYTES / (totalDuration * 1e9);
+    outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
+               << std::endl
+               << "Peak GFLOPS/s: " << GPU_FP64_THROUGHPUT * 1e3 << " GFLOPS/s"
+               << std::endl
+               << "Efficiency FLOPS: "
+               << (estimatedFLOPS / (GPU_FP64_THROUGHPUT * 1e3)) * 100.0 << " %"
+               << std::endl
+               << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
+               << std::endl
+               << "Peak bandwidth: " << GPU_MEMORY_BANDWIDTH << " GB/s"
+               << std::endl
+               << "Efficiency bandwidth: "
+               << (estimatedBandwidth / GPU_MEMORY_BANDWIDTH) * 100.0 << " %"
+               << std::endl;
   }
 }
