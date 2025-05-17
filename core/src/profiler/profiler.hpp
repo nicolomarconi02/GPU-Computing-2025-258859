@@ -4,7 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <fstream>
-#include <unordered_map>
+#include <map>
 #include <vector>
 
 using time_point = std::chrono::steady_clock::time_point;
@@ -40,7 +40,7 @@ class Profiler{
   std::ofstream outputFile;
   std::string fileName;
   bool initialized = false;
-  std::unordered_map<std::string, std::vector<measure_t>> sessions;
+  std::map<std::string, std::vector<measure_t>> sessions;
 };
 
 class ScopeProfiler{
