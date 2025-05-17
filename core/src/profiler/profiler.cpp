@@ -118,10 +118,10 @@ void Profiler::computeCalculations() {
       totalDuration += measure.duration;
 
       outputFile << measure.id
-                 << " GFLOPS/s: " << measure.FLOPS / (measure.duration * 10e9)
+                 << " GFLOPS/s: " << measure.FLOPS / (measure.duration * 1e9)
                  << std::endl;
     }
 
-    outputFile << "TOTAL GFLOPS/s: " << totalFLOPS / (totalDuration * 10e9) << std::endl;
+    outputFile << "TOTAL GFLOPS/s: " << totalFLOPS / (totalDuration * 1e9) << std::endl;
   }
 }
