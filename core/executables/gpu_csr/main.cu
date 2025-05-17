@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
             << std::endl;
   {
-    ScopeProfiler pMult("multiplication");
+    ScopeProfiler pMult("multiplication", 2 * matrix.N_ELEM);
     // Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
     //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
     
