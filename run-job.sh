@@ -10,4 +10,4 @@
 #SBATCH --error=output_run/test-%j.err
 
 module load CUDA/12.1.1 
-srun ./bin/gpu/gpu_csr ./input_files/pattern/can_268.mtx
+srun ./bin/gpu/gpu_csr ./input_files/symmetric/Lin.mtx

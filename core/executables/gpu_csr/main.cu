@@ -97,7 +97,10 @@ int main(int argc, char **argv) {
             << std::endl;
   {
     ScopeProfiler pMult("multiplication");
-    Operations::parallelMultiplication<<<N_BLOCKS, N_THREAD>>>(
+    // Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
+    //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
+    
+    Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
         (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
     cudaDeviceSynchronize();
   }

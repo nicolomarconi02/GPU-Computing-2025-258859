@@ -4,9 +4,11 @@
 
 namespace Operations {
 template <typename indexType, typename dataType>
-__global__ void parallelMultiplication(indexType N, indexType* csr,
-                                       indexType* columns, dataType* values,
-                                       dataType* vec, dataType* res) {
+__global__ void parallelMultiplicationThreadPerRow(indexType N, indexType* csr,
+                                                   indexType* columns,
+                                                   dataType* values,
+                                                   dataType* vec,
+                                                   dataType* res) {
   indexType startIndex = threadIdx.x + (blockDim.x * blockIdx.x) + 1;
   if (startIndex > N) {
     return;
@@ -21,6 +23,33 @@ __global__ void parallelMultiplication(indexType N, indexType* csr,
       sum += values[j] * vec[columns[j]];
     }
     res[i - 1] = sum;
+  }
+}
+
+template <typename indexType, typename dataType>
+__global__ void parallelMultiplicationElementWise(
+    indexType N_ROWS, indexType* csr, indexType* columns, dataType* values,
+    dataType* vec, dataType* res) {
+  indexType index = threadIdx.x + (blockDim.x * blockIdx.x);
+  indexType stride = blockDim.x * gridDim.x;
+
+  const indexType NNZ = csr[N_ROWS];
+
+  for (; index < NNZ; index += stride) {
+    indexType lhs = 0;
+    indexType rhs = N_ROWS;
+    while (lhs < rhs) {
+      indexType mid = (lhs + rhs) / 2;
+      if (csr[mid + 1] <= index) {
+        lhs = mid + 1;
+      } else {
+        rhs = mid;
+      }
+    }
+
+    indexType rowIndex = rhs;
+    dataType product = values[index] * vec[columns[index]];
+    atomicAdd(&res[rowIndex], product);
   }
 }
 }  // namespace Operations
