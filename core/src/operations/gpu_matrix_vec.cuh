@@ -1,6 +1,4 @@
 #pragma once
-#include <cstdint>
-#include <cstdio>
 
 namespace Operations {
 template <typename indexType, typename dataType>
@@ -52,4 +50,35 @@ __global__ void parallelMultiplicationElementWise(
     atomicAdd(&res[rowIndex], product);
   }
 }
+
+template <typename indexType, typename dataType>
+__global__ void parallelMultiplicationWarp(const indexType N_ROWS, const indexType* __restrict__ csr,
+                              const indexType* __restrict__ columns, const dataType* __restrict__ values,
+                              const dataType* __restrict__ vec, dataType* __restrict__ res) {
+  const int warpSize = 32;
+  const int thread_id = threadIdx.x + blockDim.x * blockIdx.x;
+  const int warp_id = thread_id / warpSize;
+  const int lane = threadIdx.x % warpSize; 
+
+  if (warp_id >= N_ROWS) return;
+
+  indexType row = warp_id;
+  indexType row_start = csr[row];
+  indexType row_end = csr[row + 1];
+
+  dataType sum = 0;
+
+  for (indexType j = row_start + lane; j < row_end; j += warpSize) {
+    sum += values[j] * vec[columns[j]];
+  }
+
+  for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+    sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+  }
+
+  if (lane == 0) {
+    res[row] = sum;
+  }
+}
+
 }  // namespace Operations

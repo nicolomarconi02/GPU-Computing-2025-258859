@@ -44,23 +44,20 @@ int main(int argc, char **argv) {
   Matrix<indexType_t, dataType_t> matrix = std::move(retMatrix.value());
 
   std::cout << "matrix csr: " << matrix.csr[matrix.N_ROWS] << std::endl;
-  // for (int i = 0; i < matrix.N_ROWS + 1; i++) {
-  //   std::cout << matrix.csr[i] << " ";
-  // }
 
   Matrix<indexType_t, dataType_t> vec(MatrixType_::array, matrix.N_ELEM);
   for (int i = 0; i < matrix.N_ELEM; i++) {
     vec.values[i] = 1;
   }
 
-  // std::cout << matrix << std::endl;
-  //
-  // std::cout << "start vec" << std::endl;
-  // std::cout << vec;
-
   Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
-  const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-  const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+
+  // const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+  // const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+
+  const indexType_t N_WARPS = 4;
+  const indexType_t N_THREAD = N_WARPS * 32;
+  const indexType_t N_BLOCKS = (matrix.N_ROWS + N_WARPS - 1) / N_WARPS;
 
   indexType_t *csr, *columns;
   dataType_t *values, *array, *res1, *res2;
@@ -100,19 +97,16 @@ int main(int argc, char **argv) {
     // Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
     //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
     
-    Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
+    // Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
+    //     (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
+
+    Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
         (indexType_t) matrix.N_ROWS, csr, columns, values, array, res2);
     cudaDeviceSynchronize();
   }
 
   cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dataType_t),
              cudaMemcpyDeviceToHost);
-
-  // std::cout << "res: " << std::endl;
-  // for (int i = 0; i < matrix.N_ROWS; i++) {
-  //   std::cout << resMat.values[i] << " ";
-  // }
-  // std::cout << std::endl;
 
   std::cout << "save: " << std::endl;
   Utils::saveResultsToFile(matrix, vec, resMat);
