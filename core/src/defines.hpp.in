@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #define PROJECT_PATH "@CMAKE_SOURCE_DIR@"
 #define STATISTICS_PATH PROJECT_PATH "/statistics/"
 #define PROFILER_OUTPUT_PATH PROJECT_PATH "/profiler_session/"
@@ -11,3 +13,12 @@
 #define GPU_FP32_THROUGHPUT 91.6                        // TFLOP/s
 #define GPU_FP64_THROUGHPUT GPU_FP32_THROUGHPUT / 64.0  // TFLOP/s
 #define GPU_MEMORY_BANDWIDTH 864.0                      // GB/s
+
+typedef uint32_t indexType_t;
+typedef double dataType_t;
+
+enum Mode_ : uint8_t { CPU = 0, GPU = 1 };
+
+typedef uint8_t Mode;
+
+extern Mode executionMode;

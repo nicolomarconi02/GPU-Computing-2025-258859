@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <utils/parser.hpp>
 #include <vector>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -74,7 +75,9 @@ Profiler::Profiler() {
 
 Profiler::~Profiler() {
   if (outputFile.is_open()) {
-    computeCalculations();
+    if (executionMode == Mode_::GPU) {
+      computeCalculations();
+    }
     outputFile.close();
     initialized = false;
   }
@@ -133,12 +136,13 @@ void Profiler::computeCalculations() {
 
     double estimatedFLOPS = totalFLOPS / (totalDuration * 1e9);
     double estimatedBandwidth = totalBYTES / (totalDuration * 1e9);
+    double peakThroughput = (typeid(dataType_t) == typeid(double)) ? GPU_FP64_THROUGHPUT * 1e3 : ((typeid(dataType_t) == typeid(float)) ? GPU_FP32_THROUGHPUT * 1e3 : 1); 
     outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
                << std::endl
-               << "Peak GFLOPS/s: " << GPU_FP64_THROUGHPUT * 1e3 << " GFLOPS/s"
+               << "Peak GFLOPS/s: " << peakThroughput << " GFLOPS/s"
                << std::endl
                << "Efficiency FLOPS: "
-               << (estimatedFLOPS / (GPU_FP64_THROUGHPUT * 1e3)) * 100.0 << " %"
+               << (estimatedFLOPS / peakThroughput) * 100.0 << " %"
                << std::endl
                << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
                << std::endl

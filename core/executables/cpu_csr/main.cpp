@@ -1,3 +1,4 @@
+#include "defines.hpp"
 #include <cstdint>
 #include <iostream>
 #include <filesystem>
@@ -6,9 +7,6 @@
 #include "utils/utils.hpp"
 #include "operations/cpu_matrix_vec.hpp"
 #include "profiler/profiler.hpp"
-
-typedef uint32_t indexType_t;
-typedef double dataType_t;
 
 Mode executionMode = Mode_::CPU;
 

@@ -14,9 +14,6 @@
 
 Mode executionMode = Mode_::GPU;
 
-typedef uint32_t indexType_t;
-typedef double dataType_t;
-
 int main(int argc, char **argv) {
   ScopeProfiler prof("main");
   if (argc != 3) {

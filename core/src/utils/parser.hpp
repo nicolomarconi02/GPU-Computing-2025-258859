@@ -7,16 +7,11 @@
 #include "expected.hpp"
 #include "utils/sort_matrix.hpp"
 #include "profiler/profiler.hpp"
+#include "defines.hpp"
 
 extern "C" {
 #include "mmio.h"
 }
-
-enum Mode_ : uint8_t { CPU = 0, GPU = 1 };
-
-typedef uint8_t Mode;
-
-extern Mode executionMode;
 
 namespace Utils {
 
