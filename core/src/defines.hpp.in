@@ -14,6 +14,9 @@
 #define GPU_FP64_THROUGHPUT GPU_FP32_THROUGHPUT / 64.0  // TFLOP/s
 #define GPU_MEMORY_BANDWIDTH 864.0                      // GB/s
 
+#define GPU_N_WARMUP_RUNS 2
+#define GPU_N_MEASURE_RUNS 10
+
 typedef uint32_t indexType_t;
 typedef double dataType_t;
 

@@ -88,47 +88,78 @@ int main(int argc, char **argv) {
                         cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(array, vec.values, matrix.N_ELEM * sizeof(dataType_t),
                         cudaMemcpyHostToDevice));
-  CUDA_CHECK(cudaMemcpy(res2, res1, matrix.N_ROWS * sizeof(dataType_t),
-                        cudaMemcpyHostToDevice));
 
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
             << std::endl;
-  switch (operationSelected) {
-    case Operations::MultiplicationTypes::ThreadPerRow: {
-      const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-      const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
-      const indexType_t N_BYTES =
-          matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
-          matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
-      ScopeProfiler pMult("multiplication-thread-per-row", 2 * matrix.N_ELEM, N_BYTES);
-      Operations::parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
-          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
-      cudaDeviceSynchronize();
-    } break;
-    case Operations::MultiplicationTypes::ElementWise: {
-      const indexType_t N_BLOCKS = COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-      const indexType_t N_THREAD = COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
-      const indexType_t N_BYTES =
-          matrix.N_ELEM * (sizeof(dataType_t) * 3 + 2 * sizeof(indexType_t));
-      ScopeProfiler pMult("multiplication-element-wise", 2 * matrix.N_ELEM, N_BYTES);
-      Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
-          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
-      cudaDeviceSynchronize();
-    } break;
-    case Operations::MultiplicationTypes::Warp: {
-      const indexType_t N_WARPS = 4;
-      const indexType_t N_THREAD = N_WARPS * 32;
-      const indexType_t N_BLOCKS = (matrix.N_ROWS + N_WARPS - 1) / N_WARPS;
-      const indexType_t N_BYTES =
-          matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
-          matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
-      ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM, N_BYTES);
-      Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
-          (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
-      cudaDeviceSynchronize();
-    } break;
-    default:
-      std::cerr << "Uknown operation!" << std::endl;
+  for (int run = 0; run < GPU_N_WARMUP_RUNS + GPU_N_MEASURE_RUNS; run++) {
+    CUDA_CHECK(cudaMemcpy(res2, res1, matrix.N_ROWS * sizeof(dataType_t),
+                          cudaMemcpyHostToDevice));
+    switch (operationSelected) {
+      case Operations::MultiplicationTypes::ThreadPerRow: {
+        const indexType_t N_BLOCKS =
+            COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+        const indexType_t N_THREAD =
+            COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-thread-per-row",
+                              2 * matrix.N_ELEM, N_BYTES);
+          Operations::
+              parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
+                  (indexType_t)matrix.N_ROWS, csr, columns, values, array,
+                  res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::
+              parallelMultiplicationThreadPerRow<<<N_BLOCKS, N_THREAD>>>(
+                  (indexType_t)matrix.N_ROWS, csr, columns, values, array,
+                  res2);
+          cudaDeviceSynchronize();
+        }
+      } break;
+      case Operations::MultiplicationTypes::ElementWise: {
+        const indexType_t N_BLOCKS =
+            COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+        const indexType_t N_THREAD =
+            COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 3 + 2 * sizeof(indexType_t));
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-element-wise", 2 * matrix.N_ELEM,
+                              N_BYTES);
+          Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::parallelMultiplicationElementWise<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        }
+      } break;
+      case Operations::MultiplicationTypes::Warp: {
+        const indexType_t N_WARPS = 4;
+        const indexType_t N_THREAD = N_WARPS * 32;
+        const indexType_t N_BLOCKS = (matrix.N_ROWS + N_WARPS - 1) / N_WARPS;
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM,
+                              N_BYTES);
+          Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        }
+      } break;
+      default:
+        std::cerr << "Uknown operation!" << std::endl;
+    }
   }
 
   cudaMemcpy(resMat.values, res2, (matrix.N_ROWS) * sizeof(dataType_t),

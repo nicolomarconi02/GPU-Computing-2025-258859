@@ -108,7 +108,7 @@ void Profiler::addMeasure(const std::string& id, const time_point& start,
     vec.push_back(record);
     sessions.emplace(id, vec);
   } else {
-    record.id = record.id + "_" + std::to_string(it->second.size() - 1);
+    record.id = record.id + "_" + std::to_string(it->second.size());
     it->second.push_back(record);
   }
 
