@@ -15,32 +15,24 @@ __global__ void bitonicSortStep(indexType* rows, indexType* cols,
                                 indexType sequenceSize) {
   indexType currIndex = threadIdx.x + blockDim.x * blockIdx.x;
   indexType compIndex = currIndex ^ distance;
-
+  bool ascending = (currIndex & sequenceSize);
   if (compIndex > currIndex) {
-    // ascending sort
-    if ((currIndex & sequenceSize) == 0 &&
-        (rows[currIndex] > rows[compIndex])) {
-      indexType tmpRow = rows[currIndex];
-      indexType tmpCol = cols[currIndex];
+    indexType rowsCurr = rows[currIndex];
+    indexType colsCurr = cols[currIndex];
+    indexType rowsComp = rows[compIndex];
+    indexType colsComp = cols[compIndex];
+    if ((ascending && (rowsCurr > rowsComp ||
+                       (rowsCurr == rowsComp &&
+                        colsCurr > colsComp))) ||
+        (!ascending && (rowsCurr < rowsComp ||
+                        (rowsCurr == rowsComp &&
+                         colsCurr < colsComp)))) {
       dataType tmpVal = values[currIndex];
-      rows[currIndex] = rows[compIndex];
-      cols[currIndex] = cols[compIndex];
+      rows[currIndex] = rowsComp;
+      cols[currIndex] = colsComp;
       values[currIndex] = values[compIndex];
-      rows[compIndex] = tmpRow;
-      cols[compIndex] = tmpCol;
-      values[compIndex] = tmpVal;
-    }
-    // descending sort
-    if ((currIndex & sequenceSize) != 0 &&
-        (rows[currIndex] < rows[compIndex])) {
-      indexType tmpRow = rows[currIndex];
-      indexType tmpCol = cols[currIndex];
-      dataType tmpVal = values[currIndex];
-      rows[currIndex] = rows[compIndex];
-      cols[currIndex] = cols[compIndex];
-      values[currIndex] = values[compIndex];
-      rows[compIndex] = tmpRow;
-      cols[compIndex] = tmpCol;
+      rows[compIndex] = rowsCurr;
+      cols[compIndex] = rowsComp;
       values[compIndex] = tmpVal;
     }
   }
