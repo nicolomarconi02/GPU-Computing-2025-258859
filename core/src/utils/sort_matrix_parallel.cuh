@@ -15,7 +15,7 @@ __global__ void bitonicSortStep(indexType* rows, indexType* cols,
                                 indexType sequenceSize) {
   indexType currIndex = threadIdx.x + blockDim.x * blockIdx.x;
   indexType compIndex = currIndex ^ distance;
-  bool ascending = (currIndex & sequenceSize);
+  bool ascending = (currIndex & sequenceSize) == 0;
   if (compIndex > currIndex) {
     indexType rowsCurr = rows[currIndex];
     indexType colsCurr = cols[currIndex];
