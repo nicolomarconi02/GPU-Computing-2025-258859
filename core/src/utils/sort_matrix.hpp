@@ -1,7 +1,9 @@
 #pragma once
 
+#include <barrier>
 #include <cmath>
 #include <profiler/profiler.hpp>
+#include <thread>
 #include "structures/matrix.hpp"
 
 #define SWAP_CONDITION(a, b)     \
@@ -32,7 +34,9 @@ int partition(Matrix<indexType, dataType>& mat, int low, int high) {
     if ((mat.rows[j] < pivotRow) ||
         (mat.rows[j] == pivotRow && mat.columns[j] < pivotCol)) {
       i++;
-      swap(mat, i, j);
+      std::swap(mat.rows[i], mat.rows[j]);
+      std::swap(mat.cols[i], mat.cols[j]);
+      std::swap(mat.values[i], mat.values[j]);
     }
   }
   swap(mat, i + 1, high);
@@ -78,10 +82,62 @@ int sortMatrixUntil(Matrix<indexType, dataType>& mat, int currentIndex) {
   int swapIndex = findSwapIndex(mat, currentIndex, 0, currentIndex);
   for (int i = swapIndex; i <= currentIndex; i++) {
     if (SWAP_CONDITION(currentIndex, i)) {
-      swap(mat, currentIndex, i);
+      std::swap(mat.rows[i], mat.rows[currentIndex]);
+      std::swap(mat.cols[i], mat.cols[currentIndex]);
+      std::swap(mat.values[i], mat.values[currentIndex]);
     }
   }
   return swapIndex;
 }
 
+template <typename indexType, typename dataType>
+void bitonicCompare(indexType* rows, indexType* cols, dataType* values,
+                    indexType i, indexType j, bool ascending) {
+  if ((ascending && rows[i] > rows[j]) || (!ascending && rows[i] < rows[j])) {
+    std::swap(rows[i], rows[j]);
+    std::swap(cols[i], cols[j]);
+    std::swap(values[i], values[j]);
+  }
+}
+
+template <typename indexType, typename dataType>
+void cpuBitonicSort(Matrix<indexType, dataType>& matrix) {
+  indexType size = std::pow(2, std::ceil(std::log2(matrix.N_ELEM)));
+  indexType paddingSize = size - matrix.N_ELEM;
+
+  std::vector<indexType> rows(matrix.rows, matrix.rows + matrix.N_ELEM);
+  std::vector<indexType> cols(matrix.columns, matrix.columns + matrix.N_ELEM);
+  std::vector<dataType> vals(matrix.values, matrix.values + matrix.N_ELEM);
+
+  rows.resize(size, std::numeric_limits<indexType>::max());
+  cols.resize(size, std::numeric_limits<indexType>::max());
+  vals.resize(size, std::numeric_limits<dataType>::max());
+
+  const int numThreads = std::thread::hardware_concurrency();
+  std::barrier sync_point(numThreads);
+
+  for (indexType k = 2; k <= size; k <<= 1) {
+    for (indexType j = k >> 1; j > 0; j >>= 1) {
+      std::vector<std::jthread> threads;
+      for (int t = 0; t < numThreads; ++t) {
+        threads.emplace_back([&, t]() {
+          for (indexType i = t; i < size; i += numThreads) {
+            indexType ixj = i ^ j;
+            if (ixj > i) {
+              bool ascending = ((i & k) == 0);
+              bitonicCompare(rows.data(), cols.data(), vals.data(), i, ixj,
+                             ascending);
+            }
+          }
+          sync_point.arrive_and_wait();
+        });
+      }
+      for (auto& t : threads) t.join();
+    }
+  }
+
+  std::copy(rows.begin(), rows.begin() + matrix.N_ELEM, matrix.rows);
+  std::copy(cols.begin(), cols.begin() + matrix.N_ELEM, matrix.columns);
+  std::copy(vals.begin(), vals.begin() + matrix.N_ELEM, matrix.values);
+}
 }  // namespace Utils

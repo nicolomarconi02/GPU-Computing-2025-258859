@@ -53,7 +53,11 @@ int main(int argc, char** argv) {
                                          retMatrix.value().N_ROWS);
   switch (operationSelected) {
     case Operations::MultiplicationTypes::Sequential: {
-      const indexType_t N_BYTES = retMatrix.value().N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t)) + retMatrix.value().N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)); 
+      const indexType_t N_BYTES =
+          retMatrix.value().N_ROWS *
+              (sizeof(dataType_t) + 2 * sizeof(indexType_t)) +
+          retMatrix.value().N_ELEM *
+              (sizeof(dataType_t) * 2 + sizeof(indexType_t));
       ScopeProfiler prof("multiplication-sequential",
                          2 * retMatrix.value().N_ELEM, N_BYTES);
       auto retMult =
@@ -65,11 +69,14 @@ int main(int argc, char** argv) {
       result = std::move(retMult.value());
     } break;
     case Operations::MultiplicationTypes::Parallel: {
-      const indexType_t N_BYTES = retMatrix.value().N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t)) + retMatrix.value().N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)); 
+      const indexType_t N_BYTES =
+          retMatrix.value().N_ROWS *
+              (sizeof(dataType_t) + 2 * sizeof(indexType_t)) +
+          retMatrix.value().N_ELEM *
+              (sizeof(dataType_t) * 2 + sizeof(indexType_t));
       ScopeProfiler prof("multiplication-parallel",
                          2 * retMatrix.value().N_ELEM, N_BYTES);
-      auto retMult =
-          Operations::parallelMultiplication(retMatrix.value(), vec);
+      auto retMult = Operations::parallelMultiplication(retMatrix.value(), vec);
       if (!retMult.has_value()) {
         std::cerr << retMult.error() << std::endl;
         exit(5);
@@ -80,6 +87,9 @@ int main(int argc, char** argv) {
       std::cerr << "Uknown operation!" << std::endl;
   }
 
-  Utils::saveResultsToFile(retMatrix.value(), vec, result);
+  {
+    ScopeProfiler save("saveResultsToFile");
+    Utils::saveResultsToFile(retMatrix.value(), vec, result);
+  }
   return 0;
 }

@@ -25,19 +25,15 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
   int counterElem = 0;
   if (matrix.type & MatrixType_::pattern) {
     for (int i = 0; i < matrix.N_ELEM; i++) {
-      int newIndex = 0;
       if (fscanf(file, "%d %d\n", &matrix.rows[i], &matrix.columns[i]) == EOF) {
         break;
       }
+
+      int newIndex = i;
       matrix.values[i] = 1;
       matrix.rows[i]--;
       matrix.columns[i]--;
 
-      if (executionMode == Mode_::CPU) {
-        newIndex = Utils::sortMatrixUntil(matrix, i);
-      } else {
-        newIndex = i;
-      }
       if (matrix.type & MatrixType_::symmetric &&
           matrix.rows[newIndex] != matrix.columns[newIndex]) {
         matrix.values[i + 1] = matrix.values[newIndex];
@@ -45,9 +41,6 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
         matrix.columns[i + 1] = matrix.rows[newIndex];
         counterElem++;
         i++;
-        if (executionMode == Mode_::CPU) {
-          Utils::sortMatrixUntil(matrix, i);
-        }
       }
     }
   } else if (matrix.type & MatrixType_::array) {
@@ -57,9 +50,6 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
       }
       matrix.rows[i]--;
       matrix.columns[i] = 0;
-      if (executionMode == Mode_::CPU) {
-        Utils::sortMatrixUntil(matrix, i);
-      }
     }
   } else if (matrix.type & MatrixType_::real ||
              matrix.type & MatrixType_::integer) {
@@ -68,14 +58,9 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
                  &matrix.values[i]) == EOF) {
         break;
       }
-      int newIndex = 0;
+      int newIndex = i;
       matrix.rows[i]--;
       matrix.columns[i]--;
-      if (executionMode == Mode_::CPU) {
-        newIndex = Utils::sortMatrixUntil(matrix, i);
-      } else {
-        newIndex = i;
-      }
       if (matrix.type & MatrixType_::symmetric &&
           matrix.rows[newIndex] != matrix.columns[newIndex]) {
         matrix.values[i + 1] = matrix.values[newIndex];
@@ -83,9 +68,6 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
         matrix.columns[i + 1] = matrix.rows[newIndex];
         counterElem++;
         i++;
-        if (executionMode == Mode_::CPU) {
-          Utils::sortMatrixUntil(matrix, i);
-        }
       }
     }
   }
@@ -127,9 +109,16 @@ tl::expected<Matrix<indexType, dataType>, std::string> parseMatrixMarketFile(
   Matrix<indexType, dataType> matrix(N_ROWS, N_COLS, N_ELEM);
   matrix.type = retType.value();
 
-  storeMatrix(inputFile, matrix);
+  {
+    ScopeProfiler store("storeMatrix");
+    storeMatrix(inputFile, matrix);
+  }
 
   if (executionMode == Mode_::CPU) {
+    {
+      ScopeProfiler sort("bitonicSort");
+      Utils::cpuBitonicSort(matrix);
+    }
     auto retCSR = matrix.computeCSR();
 
     if (!retCSR.has_value()) {
