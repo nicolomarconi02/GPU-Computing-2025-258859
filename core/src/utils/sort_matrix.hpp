@@ -93,7 +93,10 @@ int sortMatrixUntil(Matrix<indexType, dataType>& mat, int currentIndex) {
 template <typename indexType, typename dataType>
 void bitonicCompare(indexType* rows, indexType* cols, dataType* values,
                     indexType i, indexType j, bool ascending) {
-  if ((ascending && rows[i] > rows[j]) || (!ascending && rows[i] < rows[j])) {
+  if ((ascending &&
+       (rows[i] > rows[j] || (rows[i] == rows[j] && cols[i] > cols[j]))) ||
+      (!ascending &&
+       (rows[i] < rows[j] || (rows[i] == rows[j] && cols[i] < cols[j])))) {
     std::swap(rows[i], rows[j]);
     std::swap(cols[i], cols[j]);
     std::swap(values[i], values[j]);
@@ -116,17 +119,18 @@ void cpuBitonicSort(Matrix<indexType, dataType>& matrix) {
   const int numThreads = std::thread::hardware_concurrency();
   std::barrier sync_point(numThreads);
 
-  for (indexType k = 2; k <= size; k <<= 1) {
-    for (indexType j = k >> 1; j > 0; j >>= 1) {
+  for (indexType sequenceSize = 2; sequenceSize <= size; sequenceSize <<= 1) {
+    for (indexType distance = sequenceSize >> 1; distance > 0; distance >>= 1) {
       std::vector<std::jthread> threads;
       for (int t = 0; t < numThreads; ++t) {
         threads.emplace_back([&, t]() {
-          for (indexType i = t; i < size; i += numThreads) {
-            indexType ixj = i ^ j;
-            if (ixj > i) {
-              bool ascending = ((i & k) == 0);
-              bitonicCompare(rows.data(), cols.data(), vals.data(), i, ixj,
-                             ascending);
+          for (indexType currentIndex = t; currentIndex < size;
+               currentIndex += numThreads) {
+            indexType compIndex = currentIndex ^ distance;
+            if (compIndex > currentIndex) {
+              bool ascending = ((currentIndex & sequenceSize) == 0);
+              bitonicCompare(rows.data(), cols.data(), vals.data(),
+                             currentIndex, compIndex, ascending);
             }
           }
           sync_point.arrive_and_wait();
