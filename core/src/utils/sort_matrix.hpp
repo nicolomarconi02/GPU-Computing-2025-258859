@@ -12,6 +12,7 @@
 
 namespace Utils {
 
+//swap utility used in the first version of QuickSort
 template <typename indexType, typename dataType>
 void swap(Matrix<indexType, dataType>& mat, int i, int j) {
   indexType tmpRow = mat.rows[i];
@@ -25,6 +26,7 @@ void swap(Matrix<indexType, dataType>& mat, int i, int j) {
   mat.values[j] = tmpVal;
 }
 
+// partition function for QuickSort
 template <typename indexType, typename dataType>
 int partition(Matrix<indexType, dataType>& mat, int low, int high) {
   indexType pivotRow = mat.rows[high];
@@ -43,6 +45,7 @@ int partition(Matrix<indexType, dataType>& mat, int low, int high) {
   return (i + 1);
 }
 
+// QuickSort not used anymore
 template <typename indexType, typename dataType>
 void quickSort(Matrix<indexType, dataType>& mat, int low, int high) {
   if (low < high) {
@@ -52,12 +55,14 @@ void quickSort(Matrix<indexType, dataType>& mat, int low, int high) {
   }
 }
 
+// function call used for the quicksort profiling
 template <typename indexType, typename dataType>
 void sortMatrix(Matrix<indexType, dataType>& mat) {
   ScopeProfiler prof("quickSort");
   quickSort(mat, 0, mat.N_ELEM - 1);
 }
 
+// swap index utility that allows to find the index to swap using binary search
 template <typename indexType, typename dataType>
 int findSwapIndex(Matrix<indexType, dataType>& mat, int indexToSwap, int lhs,
                   int rhs) {
@@ -77,6 +82,7 @@ int findSwapIndex(Matrix<indexType, dataType>& mat, int indexToSwap, int lhs,
   return mid;
 }
 
+// insertion sort like algorithm, not used anymore
 template <typename indexType, typename dataType>
 int sortMatrixUntil(Matrix<indexType, dataType>& mat, int currentIndex) {
   int swapIndex = findSwapIndex(mat, currentIndex, 0, currentIndex);
@@ -90,6 +96,7 @@ int sortMatrixUntil(Matrix<indexType, dataType>& mat, int currentIndex) {
   return swapIndex;
 }
 
+// utility for the swap for the parallel bitonic merge sort 
 template <typename indexType, typename dataType>
 void bitonicCompare(indexType* rows, indexType* cols, dataType* values,
                     indexType i, indexType j, bool ascending) {
@@ -103,6 +110,7 @@ void bitonicCompare(indexType* rows, indexType* cols, dataType* values,
   }
 }
 
+// Parallel Bitonic Merge Sort
 template <typename indexType, typename dataType>
 void cpuBitonicSort(Matrix<indexType, dataType>& matrix) {
   indexType size = std::pow(2, std::ceil(std::log2(matrix.N_ELEM)));

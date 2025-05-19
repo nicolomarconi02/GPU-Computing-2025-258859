@@ -33,6 +33,7 @@ int main(int argc, char** argv) {
 
   std::cout << "CPU-CSR" << std::endl;
 
+  // parse, store and sorts the matrix of the Matrix Market input file 
   auto retMatrix =
       Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);
 
@@ -41,6 +42,7 @@ int main(int argc, char** argv) {
     exit(4);
   }
 
+  // initialize the vector to be multiplied, set all the values to one for simplicity
   Matrix<indexType_t, dataType_t> vec(MatrixType_::array,
                                       retMatrix.value().N_ELEM);
   for (int i = 0; i < retMatrix.value().N_ELEM; i++) {
@@ -49,8 +51,11 @@ int main(int argc, char** argv) {
 
   std::cout << "CSR: " << retMatrix.value().csr[retMatrix.value().N_ROWS]
             << std::endl;
+
+  // initialize the output vector
   Matrix<indexType_t, dataType_t> result(MatrixType_::array,
                                          retMatrix.value().N_ROWS);
+  // switch for the operation selected by the user
   switch (operationSelected) {
     case Operations::MultiplicationTypes::Sequential: {
       const indexType_t N_BYTES =
@@ -58,6 +63,7 @@ int main(int argc, char** argv) {
               (sizeof(dataType_t) + 2 * sizeof(indexType_t)) +
           retMatrix.value().N_ELEM *
               (sizeof(dataType_t) * 2 + sizeof(indexType_t));
+      // start the profiler
       ScopeProfiler prof("multiplication-sequential",
                          2 * retMatrix.value().N_ELEM, N_BYTES);
       auto retMult =
@@ -74,6 +80,7 @@ int main(int argc, char** argv) {
               (sizeof(dataType_t) + 2 * sizeof(indexType_t)) +
           retMatrix.value().N_ELEM *
               (sizeof(dataType_t) * 2 + sizeof(indexType_t));
+      // start the profiler
       ScopeProfiler prof("multiplication-parallel",
                          2 * retMatrix.value().N_ELEM, N_BYTES);
       auto retMult = Operations::parallelMultiplication(retMatrix.value(), vec);
@@ -88,6 +95,7 @@ int main(int argc, char** argv) {
   }
 
   {
+    // measure how much time takes the saving
     ScopeProfiler save("saveResultsToFile");
     Utils::saveResultsToFile(retMatrix.value(), vec, result);
   }

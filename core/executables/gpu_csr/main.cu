@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
 
   std::cout << "GPU-CSR" << std::endl;
 
+  // parse and store matrix market file
   auto retMatrix =
       Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);
 
@@ -46,6 +47,7 @@ int main(int argc, char **argv) {
     exit(4);
   }
 
+  // sort with parallel bitonic sort and compute csr on the sorted matrix
   Utils::parallelSort(retMatrix.value());
   retMatrix.value().computeCSR();
 
@@ -53,11 +55,13 @@ int main(int argc, char **argv) {
 
   std::cout << "matrix csr: " << matrix.csr[matrix.N_ROWS] << std::endl;
 
+  // initialize dense vector for the multiplication (all values set to one for simplicity)
   Matrix<indexType_t, dataType_t> vec(MatrixType_::array, matrix.N_ELEM);
   for (int i = 0; i < matrix.N_ELEM; i++) {
     vec.values[i] = 1;
   }
 
+  // initialize result vector
   Matrix<indexType_t, dataType_t> resMat(MatrixType_::array, matrix.N_ROWS);
 
   indexType_t *csr, *columns;
@@ -91,9 +95,11 @@ int main(int argc, char **argv) {
 
   std::cout << "Completed all the CUDA malloc and memcpy correctly!"
             << std::endl;
+  // run warmup and measure cycles all together
   for (int run = 0; run < GPU_N_WARMUP_RUNS + GPU_N_MEASURE_RUNS; run++) {
     CUDA_CHECK(cudaMemcpy(res2, res1, matrix.N_ROWS * sizeof(dataType_t),
                           cudaMemcpyHostToDevice));
+    // switch for the selected operation by the user
     switch (operationSelected) {
       case Operations::MultiplicationTypes::ThreadPerRow: {
         const indexType_t N_BLOCKS =
@@ -103,6 +109,7 @@ int main(int argc, char **argv) {
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        // profile the multiplication only after the warmup cycles 
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-thread-per-row",
                               2 * matrix.N_ELEM, N_BYTES);
@@ -126,6 +133,7 @@ int main(int argc, char **argv) {
             COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 3 + 2 * sizeof(indexType_t));
+        // profile the multiplication only after the warmup cycles 
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-element-wise", 2 * matrix.N_ELEM,
                               N_BYTES);
@@ -145,6 +153,7 @@ int main(int argc, char **argv) {
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        // profile the multiplication only after the warmup cycles 
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM,
                               N_BYTES);

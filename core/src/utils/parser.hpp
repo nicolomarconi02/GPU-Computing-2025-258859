@@ -14,12 +14,25 @@ extern "C" {
 }
 
 namespace Utils {
-
+ 
+/// Parse the Matrix Market type and map it to an internal MatrixType.
+/// @param matcode The Matrix Market typecode.
+/// @return An expected containing the internal MatrixType or an error string.
 tl::expected<MatrixType, std::string> parseMatrixType(
     const MM_typecode& matcode);
 
+/// Check whether a given MatrixType is supported.
+/// @param type MatrixType enum to validate.
+/// @return true if supported, false otherwise.
 bool checkSupportedMatrixType(const MatrixType type);
 
+/// Read matrix elements from a Matrix Market file and store them in a Matrix structure.
+/// This function supports pattern, array, real, and integer matrices, and handles
+/// symmetric matrices by duplicating off-diagonal entries.
+/// @tparam indexType The type used for row/column indices.
+/// @tparam dataType The type used for matrix values.
+/// @param file Pointer to the already opened Matrix Market file.
+/// @param matrix Matrix structure to be filled.
 template <typename indexType, typename dataType>
 void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
   int counterElem = 0;
@@ -77,6 +90,12 @@ void storeMatrix(FILE* file, Matrix<indexType, dataType>& matrix) {
   }
 }
 
+/// Parse a Matrix Market file and convert it into a Matrix object.
+/// The function supports symmetric matrices and optionally sorts and computes CSR if in CPU mode.
+/// @tparam indexType The type used for row/column indices.
+/// @tparam dataType The type used for matrix values.
+/// @param path Path to the Matrix Market (.mtx) file.
+/// @return An expected containing the parsed Matrix or an error string.
 template <typename indexType, typename dataType>
 tl::expected<Matrix<indexType, dataType>, std::string> parseMatrixMarketFile(
     const std::string& path) {

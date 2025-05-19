@@ -9,6 +9,7 @@
 #include "defines.hpp"
 
 namespace Utils {
+// utility for the swap for the parallel bitonic merge sort 
 template <typename indexType, typename dataType>
 __global__ void bitonicSortStep(indexType* rows, indexType* cols,
                                 dataType* values, indexType distance,
@@ -38,6 +39,7 @@ __global__ void bitonicSortStep(indexType* rows, indexType* cols,
   }
 }
 
+// Parallel Bitonic Merge Sort on GPU
 template <typename indexType, typename dataType>
 void parallelSort(Matrix<indexType, dataType>& matrix) {
   ScopeProfiler prof("Parallel Sort");
@@ -50,6 +52,7 @@ void parallelSort(Matrix<indexType, dataType>& matrix) {
   indexType *rowsDevice, *colsDevice, *indexPadding;
   dataType *valuesDevice, *valuesPadding;
 
+  // allocate all the device variables
   CUDA_CHECK(cudaMalloc(&rowsDevice, size * sizeof(indexType)));
   CUDA_CHECK(cudaMalloc(&colsDevice, size * sizeof(indexType)));
   CUDA_CHECK(cudaMalloc(&valuesDevice, size * sizeof(dataType)));
@@ -67,6 +70,7 @@ void parallelSort(Matrix<indexType, dataType>& matrix) {
   indexPadding = (indexType*)malloc(paddingSize * sizeof(indexType));
   valuesPadding = (dataType*)malloc(paddingSize * sizeof(dataType));
 
+  // padding values, set to the maximum value for avoid those value when sorting
   for (indexType i = 0; i < paddingSize; i++) {
     indexPadding[i] = std::numeric_limits<indexType>::max();
     valuesPadding[i] = std::numeric_limits<dataType>::max();
@@ -88,6 +92,7 @@ void parallelSort(Matrix<indexType, dataType>& matrix) {
   const indexType N_BLOCKS = COMPUTE_N_BLOCKS(indexType, size);
   const indexType N_THREAD = COMPUTE_N_THREAD(indexType, size);
 
+  // sort
   for (indexType sequenceSize = 2; sequenceSize <= size; sequenceSize <<= 1) {
     for (indexType distance = sequenceSize >> 1; distance > 0; distance >>= 1) {
       bitonicSortStep<<<N_BLOCKS, N_THREAD>>>(
@@ -96,6 +101,7 @@ void parallelSort(Matrix<indexType, dataType>& matrix) {
     }
   }
 
+  // copy the device variables to the host
   CUDA_CHECK(cudaMemcpy(matrix.rows, rowsDevice,
                         (matrix.N_ELEM) * sizeof(indexType),
                         cudaMemcpyDeviceToHost));

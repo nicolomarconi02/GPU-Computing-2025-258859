@@ -9,11 +9,13 @@
 
 using time_point = std::chrono::steady_clock::time_point;
 
+// time utilities
 inline double getDeltaSecs(const auto& delta_t);
 inline std::string formatDate(uint64_t timestamp);
 inline std::string formatTime(uint64_t timestamp);
 inline uint64_t getTimestampMicroseconds();
 
+// measure structure used for the profiler
 struct measure_t {
   std::string id;
   double duration;
@@ -26,6 +28,7 @@ struct measure_t {
   }
 };
 
+// unique profiler class
 class Profiler{
   public:
     Profiler();
@@ -43,6 +46,7 @@ class Profiler{
   std::map<std::string, std::vector<measure_t>> sessions;
 };
 
+// scope profiler class, when destructed automatically adds the measure to the profiler
 class ScopeProfiler{
   public:
   ScopeProfiler(const std::string& _id);

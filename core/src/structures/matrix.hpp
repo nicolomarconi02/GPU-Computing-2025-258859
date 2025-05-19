@@ -10,6 +10,7 @@
 
 typedef uint16_t MatrixType;
 
+// Bitmask flags defining matrix properties
 enum MatrixType_ : uint16_t {
   matrix = 1 << 0,
 
@@ -27,7 +28,8 @@ enum MatrixType_ : uint16_t {
   general = 1 << 10,
   skew = 1 << 11,
   hermitian = 1 << 12,
-  supported_type = matrix | coordinate | array | dense | sparse | real | integer | general | symmetric | pattern
+  supported_type = matrix | coordinate | array | dense | sparse | real |
+                   integer | general | symmetric | pattern
 };
 
 template <typename indexType, typename dataType>
@@ -48,6 +50,8 @@ class Matrix {
   }
 
   ~Matrix() { freeMatrix(); }
+
+  // Copy constructor
   Matrix(const Matrix<indexType, dataType>& other)
       : N_ROWS(other.N_ROWS),
         N_COLS(other.N_COLS),
@@ -67,6 +71,7 @@ class Matrix {
       csr = nullptr;
     }
   }
+  // Move constructor
   Matrix(Matrix<indexType, dataType>&& other) noexcept
       : N_ROWS(other.N_ROWS),
         N_COLS(other.N_COLS),
@@ -81,6 +86,7 @@ class Matrix {
     other.values = nullptr;
     other.csr = nullptr;
   }
+  // Copy assignment operator
   Matrix& operator=(const Matrix<indexType, dataType>& other) {
     if (this != &other) {
       freeMatrix();
@@ -106,6 +112,7 @@ class Matrix {
     }
     return *this;
   }
+  // Move assignment operator
   Matrix& operator=(Matrix<indexType, dataType>&& other) noexcept {
     if (this != &other) {
       freeMatrix();
@@ -127,6 +134,7 @@ class Matrix {
     }
     return *this;
   }
+  // Frees all allocated matrix memory
   void freeMatrix() {
     if (columns != nullptr) {
       free(columns);
@@ -142,6 +150,7 @@ class Matrix {
     }
   }
 
+  // Converts matrix to CSR (Compressed Sparse Row) format
   tl::expected<bool, std::string> computeCSR() {
     if (type & MatrixType_::array) {
       return tl::make_unexpected("Cannot compute CSR for an array");
@@ -175,7 +184,9 @@ class Matrix {
   int N_COLS = 0;
   int N_ELEM = 0;
 
-  friend std::ostream& operator<<(std::ostream& os, const Matrix<indexType, dataType>& mat) {
+  // Output stream operator for printing the matrix
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const Matrix<indexType, dataType>& mat) {
     if (mat.type & MatrixType_::array) {
       dataType total = 0;
       for (indexType i = 0; i < mat.N_ELEM; i++) {
