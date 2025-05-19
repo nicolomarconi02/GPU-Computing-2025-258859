@@ -75,9 +75,7 @@ Profiler::Profiler() {
 
 Profiler::~Profiler() {
   if (outputFile.is_open()) {
-    if (executionMode == Mode_::GPU) {
-      computeCalculations();
-    }
+    computeCalculations();
     outputFile.close();
     initialized = false;
   }
@@ -136,20 +134,31 @@ void Profiler::computeCalculations() {
 
     double estimatedFLOPS = totalFLOPS / (totalDuration * 1e9);
     double estimatedBandwidth = totalBYTES / (totalDuration * 1e9);
-    double peakThroughput = (typeid(dataType_t) == typeid(double)) ? GPU_FP64_THROUGHPUT * 1e3 : ((typeid(dataType_t) == typeid(float)) ? GPU_FP32_THROUGHPUT * 1e3 : 1); 
-    outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
-               << std::endl
-               << "Peak GFLOPS/s: " << peakThroughput << " GFLOPS/s"
-               << std::endl
-               << "Efficiency FLOPS: "
-               << (estimatedFLOPS / peakThroughput) * 100.0 << " %"
-               << std::endl
-               << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
-               << std::endl
-               << "Peak bandwidth: " << GPU_MEMORY_BANDWIDTH << " GB/s"
-               << std::endl
-               << "Efficiency bandwidth: "
-               << (estimatedBandwidth / GPU_MEMORY_BANDWIDTH) * 100.0 << " %"
-               << std::endl;
+    if (executionMode == Mode_::GPU) {
+      double peakThroughput = (typeid(dataType_t) == typeid(double))
+                                  ? GPU_FP64_THROUGHPUT * 1e3
+                                  : ((typeid(dataType_t) == typeid(float))
+                                         ? GPU_FP32_THROUGHPUT * 1e3
+                                         : 1);
+      outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
+                 << std::endl
+                 << "Peak GFLOPS/s: " << peakThroughput << " GFLOPS/s"
+                 << std::endl
+                 << "Efficiency FLOPS: "
+                 << (estimatedFLOPS / peakThroughput) * 100.0 << " %"
+                 << std::endl
+                 << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
+                 << std::endl
+                 << "Peak bandwidth: " << GPU_MEMORY_BANDWIDTH << " GB/s"
+                 << std::endl
+                 << "Efficiency bandwidth: "
+                 << (estimatedBandwidth / GPU_MEMORY_BANDWIDTH) * 100.0 << " %"
+                 << std::endl;
+    } else {
+      outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
+                 << std::endl
+                 << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
+                 << std::endl;
+    }
   }
 }
