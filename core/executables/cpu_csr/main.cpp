@@ -33,6 +33,8 @@ int main(int argc, char** argv) {
 
   std::cout << "CPU-CSR" << std::endl;
 
+  Profiler::getProfiler().setMatrixFileName(argv[2]);
+
   // parse, store and sorts the matrix of the Matrix Market input file 
   auto retMatrix =
       Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);

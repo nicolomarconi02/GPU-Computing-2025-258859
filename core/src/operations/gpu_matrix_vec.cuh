@@ -6,6 +6,7 @@ enum MultiplicationTypes : uint8_t {
   ThreadPerRow = 0,
   ElementWise = 1,
   Warp = 2,
+  WarpLoop = 3,
   SIZE
 };
 template <typename indexType, typename dataType>
@@ -59,23 +60,24 @@ __global__ void parallelMultiplicationElementWise(
 }
 
 template <typename indexType, typename dataType>
-__global__ void parallelMultiplicationWarp(const indexType N_ROWS, const indexType* __restrict__ csr,
-                              const indexType* __restrict__ columns, const dataType* __restrict__ values,
-                              const dataType* __restrict__ vec, dataType* __restrict__ res) {
+__global__ void parallelMultiplicationWarp(
+    const indexType N_ROWS, const indexType* __restrict__ csr,
+    const indexType* __restrict__ columns, const dataType* __restrict__ values,
+    const dataType* __restrict__ vec, dataType* __restrict__ res) {
   const int warpSize = 32;
-  const int thread_id = threadIdx.x + blockDim.x * blockIdx.x;
-  const int warp_id = thread_id / warpSize;
-  const int lane = threadIdx.x % warpSize; 
+  const int threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  const int warpId = threadId / warpSize;
+  const int lane = threadIdx.x % warpSize;
 
-  if (warp_id >= N_ROWS) return;
+  if (warpId >= N_ROWS) return;
 
-  indexType row = warp_id;
-  indexType row_start = csr[row];
-  indexType row_end = csr[row + 1];
+  indexType row = warpId;
+  indexType rowStart = csr[row];
+  indexType rowEnd = csr[row + 1];
 
   dataType sum = 0;
 
-  for (indexType j = row_start + lane; j < row_end; j += warpSize) {
+  for (indexType j = rowStart + lane; j < rowEnd; j += warpSize) {
     sum += values[j] * vec[columns[j]];
   }
 
@@ -88,4 +90,36 @@ __global__ void parallelMultiplicationWarp(const indexType N_ROWS, const indexTy
   }
 }
 
+template <typename indexType, typename dataType>
+__global__ void parallelMultiplicationWarpLoop(
+    const indexType N_ROWS, const indexType* __restrict__ csr,
+    const indexType* __restrict__ columns, const dataType* __restrict__ values,
+    const dataType* __restrict__ vec, dataType* __restrict__ res) {
+  const int warpSize = 32;
+  const int threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  const int warpId = threadId / warpSize;
+  const int lane = threadIdx.x % warpSize;
+  const int totalWarps = gridDim.x * blockDim.x / warpSize;
+
+  if (warpId >= N_ROWS) return;
+
+  for (indexType row = warpId; row < N_ROWS; row += totalWarps) {
+    indexType rowStart = csr[row];
+    indexType rowEnd = csr[row + 1];
+
+    dataType sum = 0;
+
+    for (indexType j = rowStart + lane; j < rowEnd; j += warpSize) {
+      sum += values[j] * vec[columns[j]];
+    }
+
+    for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+      sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
+    }
+
+    if (lane == 0) {
+      res[row] = sum;
+    }
+  }
+}
 }  // namespace Operations

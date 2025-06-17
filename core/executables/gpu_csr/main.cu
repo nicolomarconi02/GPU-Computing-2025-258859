@@ -27,7 +27,8 @@ int main(int argc, char **argv) {
     std::cerr << "Error uknown operation! Insert:" << std::endl
               << "0 -> thread per row multiplication" << std::endl
               << "1 -> element wise multiplication" << std::endl
-              << "2 -> warp multiplication" << std::endl;
+              << "2 -> warp multiplication" << std::endl
+              << "3 -> warp multiplication loop" << std::endl;
     exit(2);
   }
 
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
 
   std::cout << "GPU-CSR" << std::endl;
 
+  Profiler::getProfiler().setMatrixFileName(argv[2]);
   // parse and store matrix market file
   auto retMatrix =
       Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);
@@ -55,7 +57,8 @@ int main(int argc, char **argv) {
 
   std::cout << "matrix csr: " << matrix.csr[matrix.N_ROWS] << std::endl;
 
-  // initialize dense vector for the multiplication (all values set to one for simplicity)
+  // initialize dense vector for the multiplication (all values set to one for
+  // simplicity)
   Matrix<indexType_t, dataType_t> vec(MatrixType_::array, matrix.N_ELEM);
   for (int i = 0; i < matrix.N_ELEM; i++) {
     vec.values[i] = 1;
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
-        // profile the multiplication only after the warmup cycles 
+        // profile the multiplication only after the warmup cycles
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-thread-per-row",
                               2 * matrix.N_ELEM, N_BYTES);
@@ -133,7 +136,7 @@ int main(int argc, char **argv) {
             COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 3 + 2 * sizeof(indexType_t));
-        // profile the multiplication only after the warmup cycles 
+        // profile the multiplication only after the warmup cycles
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-element-wise", 2 * matrix.N_ELEM,
                               N_BYTES);
@@ -153,7 +156,7 @@ int main(int argc, char **argv) {
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
-        // profile the multiplication only after the warmup cycles 
+        // profile the multiplication only after the warmup cycles
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM,
                               N_BYTES);
@@ -162,6 +165,27 @@ int main(int argc, char **argv) {
           cudaDeviceSynchronize();
         } else {
           Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        }
+      } break;
+      case Operations::MultiplicationTypes::WarpLoop: {
+        const indexType_t N_BLOCKS =
+            COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
+        const indexType_t N_THREAD =
+            COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        // profile the multiplication only after the warmup cycles
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-warp-loop", 2 * matrix.N_ELEM,
+                              N_BYTES);
+          Operations::parallelMultiplicationWarpLoop<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::parallelMultiplicationWarpLoop<<<N_BLOCKS, N_THREAD>>>(
               (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
           cudaDeviceSynchronize();
         }
