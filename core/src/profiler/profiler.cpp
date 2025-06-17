@@ -20,7 +20,7 @@ inline double getDeltaSecs(const auto& delta_t) {
 
 inline std::string formatDate(uint64_t timestamp) {
   char buff[70];
-  time_t seconds = timestamp * 1e-6;
+  time_t seconds = static_cast<time_t>(timestamp / 1000000);
   struct tm* timeinfo;
   timeinfo = localtime(&seconds);
   strftime(buff, 70, "%Y_%m_%d", timeinfo);
@@ -29,7 +29,7 @@ inline std::string formatDate(uint64_t timestamp) {
 
 inline std::string formatTime(uint64_t timestamp) {
   char buff[70];
-  time_t seconds = timestamp * 1e-6;
+  time_t seconds = static_cast<time_t>(timestamp / 1000000);
   struct tm* timeinfo;
   timeinfo = localtime(&seconds);
   strftime(buff, 70, "%H_%M_%S", timeinfo);
@@ -114,7 +114,12 @@ void Profiler::addMeasure(const std::string& id, const time_point& start,
   std::cout << record;
 }
 
+void Profiler::setMatrixFileName(const std::string& name){
+  this->matrixFile = name;
+}
+
 void Profiler::computeCalculations() {
+  outputFile << "Matrix file: " << matrixFile << std::endl;
   for (const auto& [key, vec] : sessions) {
     uint64_t totalFLOPS = 0;
     double totalDuration = 0.0;

@@ -35,6 +35,7 @@ class Profiler{
     ~Profiler();
   static Profiler& getProfiler();
   void addMeasure(const std::string& id, const time_point& start, const time_point& stop, uint64_t FLOPS, uint64_t BYTES);
+  void setMatrixFileName(const std::string& name);
 
   private:
   void computeCalculations();
@@ -42,6 +43,7 @@ class Profiler{
   private:
   std::ofstream outputFile;
   std::string fileName;
+  std::string matrixFile;
   bool initialized = false;
   std::map<std::string, std::vector<measure_t>> sessions;
 };

@@ -60,3 +60,4 @@ profiler_session/
 output_matrices/
 output_run/
 .clangd
+results/
