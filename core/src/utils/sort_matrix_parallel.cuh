@@ -33,7 +33,7 @@ __global__ void bitonicSortStep(indexType* rows, indexType* cols,
       cols[currIndex] = colsComp;
       values[currIndex] = values[compIndex];
       rows[compIndex] = rowsCurr;
-      cols[compIndex] = rowsComp;
+      cols[compIndex] = colsCurr;
       values[compIndex] = tmpVal;
     }
   }
