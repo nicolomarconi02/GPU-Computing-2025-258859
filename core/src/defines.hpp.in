@@ -15,7 +15,7 @@
 #define GPU_MEMORY_BANDWIDTH 864.0                        // GB/s
 
 #define GPU_N_WARMUP_RUNS 2
-#define GPU_N_MEASURE_RUNS 3
+#define GPU_N_MEASURE_RUNS 10
 
 #define GPU_SHARED_MEMORY_SIZE (48 * 1024)                // BYTES
 

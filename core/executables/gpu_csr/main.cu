@@ -5,6 +5,7 @@
 #include <iostream>
 #include <filesystem>
 #include <iterator>
+#include <nvToolsExt.h>
 #include <utils/sort_matrix.hpp>
 #include "utils/parser.hpp"
 #include "structures/matrix.hpp"
@@ -166,9 +167,11 @@ int main(int argc, char **argv) {
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-warp", 2 * matrix.N_ELEM,
                               N_BYTES);
+          nvtxRangePush("multiplication-warp");
           Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
               (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
           cudaDeviceSynchronize();
+          nvtxRangePop();
         } else {
           Operations::parallelMultiplicationWarp<<<N_BLOCKS, N_THREAD>>>(
               (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
@@ -199,8 +202,7 @@ int main(int argc, char **argv) {
       case Operations::MultiplicationTypes::WarpTiled: {
         const indexType_t N_THREAD = 512;
         const indexType_t ROWS_PER_BLOCK = N_THREAD / 32;
-        const indexType_t BLOCK_COL_CHUNK =
-            GPU_SHARED_MEMORY_SIZE / sizeof(dataType_t);
+        const indexType_t BLOCK_COL_CHUNK = 2024;
 
         const indexType_t N_BLOCKS =
             (matrix.N_ROWS + ROWS_PER_BLOCK - 1) / ROWS_PER_BLOCK;
@@ -242,16 +244,18 @@ int main(int argc, char **argv) {
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-warp-tiled", 2 * matrix.N_ELEM,
                               N_BYTES);
+          nvtxRangePush("multiplication-warp-tiled");
           Operations::parallelMultiplicationWarpTiled<
               indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
-              <<<N_TILES, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+              <<<N_TILES, N_THREAD, BLOCK_COL_CHUNK * sizeof(dataType_t)>>>(
                   (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
                   d_colStart, d_colEnd, d_rowBlock);
           cudaDeviceSynchronize();
+          nvtxRangePop();
         } else {
           Operations::parallelMultiplicationWarpTiled<
               indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
-              <<<N_TILES, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+              <<<N_TILES, N_THREAD, BLOCK_COL_CHUNK * sizeof(dataType_t)>>>(
                   (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
                   d_colStart, d_colEnd, d_rowBlock);
           cudaDeviceSynchronize();
