@@ -114,7 +114,7 @@ void Profiler::addMeasure(const std::string& id, const time_point& start,
   std::cout << record;
 }
 
-void Profiler::setMatrixFileName(const std::string& name){
+void Profiler::setMatrixFileName(const std::string& name) {
   this->matrixFile = name;
 }
 
@@ -139,13 +139,16 @@ void Profiler::computeCalculations() {
 
     double estimatedFLOPS = totalFLOPS / (totalDuration * 1e9);
     double estimatedBandwidth = totalBYTES / (totalDuration * 1e9);
+    double meanExecutionTime = totalDuration / vec.size();
     if (executionMode == Mode_::GPU) {
       double peakThroughput = (typeid(dataType_t) == typeid(double))
                                   ? GPU_FP64_THROUGHPUT * 1e3
                                   : ((typeid(dataType_t) == typeid(float))
                                          ? GPU_FP32_THROUGHPUT * 1e3
                                          : 1);
-      outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
+      outputFile << "Mean execution time: " << meanExecutionTime << " s"
+                 << std::endl
+                 << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
                  << std::endl
                  << "Peak GFLOPS/s: " << peakThroughput << " GFLOPS/s"
                  << std::endl
@@ -160,7 +163,9 @@ void Profiler::computeCalculations() {
                  << (estimatedBandwidth / GPU_MEMORY_BANDWIDTH) * 100.0 << " %"
                  << std::endl;
     } else {
-      outputFile << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
+      outputFile << "Mean execution time: " << meanExecutionTime << " s"
+                 << std::endl
+                 << "Estimated GFLOPS/s: " << estimatedFLOPS << " GFLOPS/s"
                  << std::endl
                  << "Estimated bandwidth: " << estimatedBandwidth << " GB/s"
                  << std::endl;
