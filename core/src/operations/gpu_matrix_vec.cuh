@@ -181,10 +181,8 @@ __global__ void parallelMultiplicationWarpTiled(
       partialSum += __shfl_down_sync(0xFFFFFFFF, partialSum, offset);
     }
 
-    if (lane == 0 && tileOffset == 0) {
-      res[row] = partialSum;
-    } else if (lane == 0) {
-      res[row] += partialSum;
+    if (lane == 0) {
+      atomicAdd(&res[row], partialSum);
     }
   }
 }
@@ -192,15 +190,14 @@ __global__ void parallelMultiplicationWarpTiled(
 template <typename indexType, typename dataType>
 void SpMVcuSparse(indexType N_ROWS, indexType N_COLS, indexType N_ELEM,
                   const indexType* csr, const indexType* columns,
-                  const dataType* values, const dataType* vec,
-                  dataType* res) {
+                  const dataType* values, const dataType* vec, dataType* res) {
   cusparseHandle_t handle;
   cusparseCreate(&handle);
 
   cusparseSpMatDescr_t matA;
-  cusparseCreateCsr(&matA, N_ROWS, N_COLS, N_ELEM, (void*)csr,
-                    (void*)columns, (void*)values, CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+  cusparseCreateCsr(&matA, N_ROWS, N_COLS, N_ELEM, (void*)csr, (void*)columns,
+                    (void*)values, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
 
   cusparseDnVecDescr_t vecX;
   cusparseCreateDnVec(&vecX, N_COLS, (void*)vec, CUDA_R_64F);
