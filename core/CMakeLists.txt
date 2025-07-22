@@ -41,7 +41,7 @@ if(CUDA_FOUND)
     ${EXTERNAL_DIRS}
     ${CDIR}/src
   )
-  target_link_libraries(gpu_csr utils)
+  target_link_libraries(gpu_csr utils CUDA::cudart CUDA::cusparse)
 
   set_target_properties(gpu_csr PROPERTIES CUDA_ARCHITECTURES "80")
 # set_target_properties(gpu_csr PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

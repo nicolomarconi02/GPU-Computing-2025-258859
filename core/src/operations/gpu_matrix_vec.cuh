@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <stdio.h>
+#include <cusparse.h>
+#include <cuda_runtime.h>
+
 namespace Operations {
 enum MultiplicationTypes : uint8_t {
   ThreadPerRow = 0,
@@ -9,6 +12,7 @@ enum MultiplicationTypes : uint8_t {
   Warp,
   WarpLoop,
   WarpTiled,
+  CuSparse,
   SIZE
 };
 template <typename indexType, typename dataType>
@@ -183,5 +187,45 @@ __global__ void parallelMultiplicationWarpTiled(
       res[row] += partialSum;
     }
   }
+}
+
+template <typename indexType, typename dataType>
+void SpMVcuSparse(indexType N_ROWS, indexType N_COLS, indexType N_ELEM,
+                  const indexType* csr, const indexType* columns,
+                  const dataType* values, const dataType* vec,
+                  dataType* res) {
+  cusparseHandle_t handle;
+  cusparseCreate(&handle);
+
+  cusparseSpMatDescr_t matA;
+  cusparseCreateCsr(&matA, N_ROWS, N_COLS, N_ELEM, (void*)csr,
+                    (void*)columns, (void*)values, CUSPARSE_INDEX_32I,
+                    CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+
+  cusparseDnVecDescr_t vecX;
+  cusparseCreateDnVec(&vecX, N_COLS, (void*)vec, CUDA_R_64F);
+
+  cusparseDnVecDescr_t vecY;
+  cusparseCreateDnVec(&vecY, N_ROWS, (void*)res, CUDA_R_64F);
+
+  double alpha = 1.0;
+  double beta = 0.0;
+
+  size_t bufferSize = 0;
+  cusparseSpMV_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, &alpha,
+                          matA, vecX, &beta, vecY, CUDA_R_64F,
+                          CUSPARSE_SPMV_CSR_ALG1, &bufferSize);
+
+  void* dBuffer = nullptr;
+  cudaMalloc(&dBuffer, bufferSize);
+
+  cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, &alpha, matA, vecX,
+               &beta, vecY, CUDA_R_64F, CUSPARSE_SPMV_CSR_ALG1, dBuffer);
+
+  cudaFree(dBuffer);
+  cusparseDestroySpMat(matA);
+  cusparseDestroyDnVec(vecX);
+  cusparseDestroyDnVec(vecY);
+  cusparseDestroy(handle);
 }
 }  // namespace Operations

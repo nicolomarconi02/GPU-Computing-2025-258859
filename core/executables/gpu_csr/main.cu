@@ -31,7 +31,8 @@ int main(int argc, char **argv) {
               << "1 -> element wise multiplication" << std::endl
               << "2 -> warp multiplication" << std::endl
               << "3 -> warp multiplication loop" << std::endl
-              << "4 -> warp multiplication tiled" << std::endl;
+              << "4 -> warp multiplication tiled" << std::endl
+              << "5 -> CuSparse" << std::endl;
     exit(2);
   }
 
@@ -258,6 +259,19 @@ int main(int argc, char **argv) {
         CUDA_CHECK(cudaFree(d_colStart));
         CUDA_CHECK(cudaFree(d_colEnd));
         CUDA_CHECK(cudaFree(d_rowBlock));
+      } break;
+      case Operations::MultiplicationTypes::CuSparse: {
+        // profile the multiplication only after the warmup cycles
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-CuSparse", 2 * matrix.N_ELEM, 0);
+          Operations::SpMVcuSparse(
+              (indexType_t)matrix.N_ROWS, (indexType_t)matrix.N_COLS,
+              (indexType_t)matrix.N_ELEM, csr, columns, values, array, res2);
+        } else {
+          Operations::SpMVcuSparse(
+              (indexType_t)matrix.N_ROWS, (indexType_t)matrix.N_COLS,
+              (indexType_t)matrix.N_ELEM, csr, columns, values, array, res2);
+        }
       } break;
       default:
         std::cerr << "Uknown operation!" << std::endl;
