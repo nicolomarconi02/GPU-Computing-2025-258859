@@ -10,4 +10,5 @@
 #SBATCH --error=output_run/test-%j.err
 
 module load CUDA/12.1.1 
-srun ./bin/gpu/gpu_csr 2 ./input_files/symmetric/Lin.mtx
+# srun ncu -o profile ./bin/gpu/gpu_csr 2 ./input_files/sls/sls.mtx
+srun ./bin/gpu/gpu_csr 5 ./input_files/integer/Trec5.mtx

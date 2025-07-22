@@ -190,19 +190,20 @@ class Matrix {
     if (mat.type & MatrixType_::array) {
       dataType total = 0;
       for (indexType i = 0; i < mat.N_ELEM; i++) {
-        os << mat.values[i] << " ";
+        // os << mat.values[i] << " ";
         total += mat.values[i];
       }
       os << std::endl << "TOTAL " << total << std::endl;
     } else {
-      for (indexType i = 0; i < mat.N_ELEM; i++) {
-        os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]
-           << std::endl;
-      }
-      os << "\nCSR\n";
-      for (indexType i = 0; i <= mat.N_ROWS; i++) {
-        os << mat.csr[i] << " ";
-      }
+      // for (indexType i = 0; i < mat.N_ELEM; i++) {
+      //   os << mat.rows[i] << " " << mat.columns[i] << " " << mat.values[i]
+      //      << std::endl;
+      // }
+      os << "\nCSR: ";
+      // for (indexType i = 0; i < mat.N_ROWS; i++) {
+      //   os << mat.csr[i] << " ";
+      // }
+      os << mat.csr[mat.N_ROWS];
       os << std::endl;
     }
 

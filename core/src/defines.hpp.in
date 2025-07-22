@@ -10,12 +10,14 @@
 #define GPU_MAX_N_THREAD 1024U
 #define GPU_MAX_N_BLOCKS 1024U
 
-#define GPU_FP32_THROUGHPUT 91.6                        // TFLOP/s
-#define GPU_FP64_THROUGHPUT GPU_FP32_THROUGHPUT / 64.0  // TFLOP/s
-#define GPU_MEMORY_BANDWIDTH 864.0                      // GB/s
+#define GPU_FP32_THROUGHPUT 91.6                          // TFLOP/s
+#define GPU_FP64_THROUGHPUT (GPU_FP32_THROUGHPUT / 64.0)  // TFLOP/s
+#define GPU_MEMORY_BANDWIDTH 864.0                        // GB/s
 
 #define GPU_N_WARMUP_RUNS 2
-#define GPU_N_MEASURE_RUNS 10
+#define GPU_N_MEASURE_RUNS 3
+
+#define GPU_SHARED_MEMORY_SIZE (48 * 1024)                // BYTES
 
 typedef uint32_t indexType_t;
 typedef double dataType_t;

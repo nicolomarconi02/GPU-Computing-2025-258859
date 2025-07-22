@@ -35,10 +35,6 @@ if(CUDA_FOUND)
     ${CDIR}/executables/gpu_csr/main.cu
   )
 
-# add_library(gpu_operations 
-#   ${CDIR}/src/operations/gpu_matrix_vec.cu
-# )
-
   target_include_directories(gpu_csr 
     PRIVATE
     SYSTEM

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <filesystem>
 #include <iterator>
+#include <utils/sort_matrix.hpp>
 #include "utils/parser.hpp"
 #include "structures/matrix.hpp"
 #include "utils/utils.hpp"
@@ -28,7 +29,8 @@ int main(int argc, char **argv) {
               << "0 -> thread per row multiplication" << std::endl
               << "1 -> element wise multiplication" << std::endl
               << "2 -> warp multiplication" << std::endl
-              << "3 -> warp multiplication loop" << std::endl;
+              << "3 -> warp multiplication loop" << std::endl
+              << "4 -> warp multiplication tiled" << std::endl;
     exit(2);
   }
 
@@ -44,6 +46,7 @@ int main(int argc, char **argv) {
   auto retMatrix =
       Utils::parseMatrixMarketFile<indexType_t, dataType_t>(argv[2]);
 
+  std::cout << "parsed matrix market file" << std::endl;
   if (!retMatrix.has_value()) {
     std::cerr << retMatrix.error() << std::endl;
     exit(4);
@@ -51,11 +54,12 @@ int main(int argc, char **argv) {
 
   // sort with parallel bitonic sort and compute csr on the sorted matrix
   Utils::parallelSort(retMatrix.value());
+
+  std::cout << "completed parallel sort" << std::endl;
   retMatrix.value().computeCSR();
+  std::cout << "completed csr computation" << std::endl;
 
   Matrix<indexType_t, dataType_t> matrix = std::move(retMatrix.value());
-
-  std::cout << "matrix csr: " << matrix.csr[matrix.N_ROWS] << std::endl;
 
   // initialize dense vector for the multiplication (all values set to one for
   // simplicity)
@@ -189,6 +193,63 @@ int main(int argc, char **argv) {
               (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
           cudaDeviceSynchronize();
         }
+      } break;
+      case Operations::MultiplicationTypes::WarpTiled: {
+        const indexType_t N_THREAD = 128;
+        const indexType_t ROWS_PER_BLOCK = N_THREAD / 32;
+        const indexType_t BLOCK_COL_CHUNK =
+            GPU_SHARED_MEMORY_SIZE / sizeof(dataType_t);
+
+        const indexType_t N_BLOCKS =
+            (matrix.N_ROWS + ROWS_PER_BLOCK - 1) / ROWS_PER_BLOCK;
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        std::vector<indexType_t> colStart, colEnd, tileCount;
+        Utils::computeBlockColRanges(
+            (indexType_t)matrix.N_ROWS, matrix.csr, matrix.columns,
+            ROWS_PER_BLOCK, BLOCK_COL_CHUNK, colStart, colEnd, tileCount);
+        for (int b = 0; b < min(N_BLOCKS, 10); b++) {
+          std::cout << "Block " << b
+                    << " span = " << (colEnd[b] - colStart[b] + 1)
+                    << " (start=" << colStart[b] << ", end=" << colEnd[b]
+                    << ")\n";
+        }
+
+        indexType_t *d_colStart, *d_colEnd;
+        CUDA_CHECK(cudaMalloc(&d_colStart, (N_BLOCKS) * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMalloc(&d_colEnd, (N_BLOCKS) * sizeof(indexType_t)));
+
+        CUDA_CHECK(cudaMemcpy(d_colStart, colStart.data(),
+                              N_BLOCKS * sizeof(indexType_t),
+                              cudaMemcpyHostToDevice));
+        CUDA_CHECK(cudaMemcpy(d_colEnd, colEnd.data(),
+                              N_BLOCKS * sizeof(indexType_t),
+                              cudaMemcpyHostToDevice));
+
+        std::cout << "Completed all the CUDA malloc for warptiled and memcpy "
+                     "correctly!"
+                  << std::endl;
+        // profile the multiplication only after the warmup cycles
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-warp-tiled", 2 * matrix.N_ELEM,
+                              N_BYTES);
+          Operations::parallelMultiplicationWarpTiled<
+              indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
+              <<<N_BLOCKS, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+                  (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
+                  d_colStart, d_colEnd);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::parallelMultiplicationWarpTiled<
+              indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
+              <<<N_BLOCKS, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+                  (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
+                  d_colStart, d_colEnd);
+          cudaDeviceSynchronize();
+        }
+        CUDA_CHECK(cudaFree(d_colStart));
+        CUDA_CHECK(cudaFree(d_colEnd));
       } break;
       default:
         std::cerr << "Uknown operation!" << std::endl;
