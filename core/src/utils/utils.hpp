@@ -75,13 +75,65 @@ void computeBlockColRanges(indexType N_ROWS, const indexType* csr,
       maxCol = 0;
     }
 
-
     indexType span = maxCol - minCol + 1;
     colStartOut[blockIndex] = minCol;
     colEndOut[blockIndex] = maxCol;
 
     tileCountOut[blockIndex] =
         (indexType)((span + BLOCK_COL_CHUNK - 1) / BLOCK_COL_CHUNK);
+  }
+}
+
+template <typename indexType>
+void computeBlockColRangesOptimized(indexType N_ROWS, const indexType* csr,
+                                    const indexType* columns,
+                                    const indexType ROWS_PER_BLOCK,
+                                    const indexType BLOCK_COL_CHUNK,
+                                    std::vector<indexType>& colStartOut,
+                                    std::vector<indexType>& colEndOut,
+                                    std::vector<indexType>& rowBlockOut) {
+  indexType numBlocks = (N_ROWS + ROWS_PER_BLOCK - 1) / ROWS_PER_BLOCK;
+  colStartOut.clear();
+  colEndOut.clear();
+  rowBlockOut.clear();
+
+  for (indexType blockIndex = 0; blockIndex < numBlocks; ++blockIndex) {
+    indexType rowStart = blockIndex * ROWS_PER_BLOCK;
+    indexType rowEnd = std::min(N_ROWS, (blockIndex + 1) * ROWS_PER_BLOCK);
+
+    std::vector<indexType> cols;
+
+    for (indexType r = rowStart; r < rowEnd; ++r) {
+      for (indexType j = csr[r]; j < csr[r + 1]; ++j) {
+        cols.push_back(columns[j]);
+      }
+    }
+    if (cols.empty()) {
+      continue;
+    }
+    std::sort(cols.begin(), cols.end());
+    cols.erase(std::unique(cols.begin(), cols.end()), cols.end());
+
+    indexType spanStart = 0;
+    while (spanStart < (indexType)cols.size()) {
+      indexType firstCol = cols[spanStart];
+      indexType spanEnd = spanStart;
+
+      // grow span until it exceeds maxSpan
+      while (spanEnd + 1 < (indexType)cols.size() &&
+             (cols[spanEnd + 1] - firstCol) < BLOCK_COL_CHUNK) {
+        ++spanEnd;
+      }
+
+      indexType colStart = firstCol;
+      indexType colEnd = cols[spanEnd];
+
+      colStartOut.push_back(colStart);
+      colEndOut.push_back(colEnd);
+      rowBlockOut.push_back(blockIndex);  
+
+      spanStart = spanEnd + 1;
+    }
   }
 }
 }  // namespace Utils

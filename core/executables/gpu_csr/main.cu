@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <defines.hpp>
 #include <iostream>
 #include <filesystem>
 #include <iterator>
@@ -195,7 +196,7 @@ int main(int argc, char **argv) {
         }
       } break;
       case Operations::MultiplicationTypes::WarpTiled: {
-        const indexType_t N_THREAD = 128;
+        const indexType_t N_THREAD = 512;
         const indexType_t ROWS_PER_BLOCK = N_THREAD / 32;
         const indexType_t BLOCK_COL_CHUNK =
             GPU_SHARED_MEMORY_SIZE / sizeof(dataType_t);
@@ -205,10 +206,10 @@ int main(int argc, char **argv) {
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
-        std::vector<indexType_t> colStart, colEnd, tileCount;
-        Utils::computeBlockColRanges(
+        std::vector<indexType_t> colStart, colEnd, rowBlock;
+        Utils::computeBlockColRangesOptimized(
             (indexType_t)matrix.N_ROWS, matrix.csr, matrix.columns,
-            ROWS_PER_BLOCK, BLOCK_COL_CHUNK, colStart, colEnd, tileCount);
+            ROWS_PER_BLOCK, BLOCK_COL_CHUNK, colStart, colEnd, rowBlock);
         for (int b = 0; b < min(N_BLOCKS, 10); b++) {
           std::cout << "Block " << b
                     << " span = " << (colEnd[b] - colStart[b] + 1)
@@ -216,15 +217,21 @@ int main(int argc, char **argv) {
                     << ")\n";
         }
 
-        indexType_t *d_colStart, *d_colEnd;
-        CUDA_CHECK(cudaMalloc(&d_colStart, (N_BLOCKS) * sizeof(indexType_t)));
-        CUDA_CHECK(cudaMalloc(&d_colEnd, (N_BLOCKS) * sizeof(indexType_t)));
+        const indexType_t N_TILES = colStart.size();
+
+        indexType_t *d_colStart, *d_colEnd, *d_rowBlock;
+        CUDA_CHECK(cudaMalloc(&d_colStart, (N_TILES) * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMalloc(&d_colEnd, (N_TILES) * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMalloc(&d_rowBlock, (N_TILES) * sizeof(indexType_t)));
 
         CUDA_CHECK(cudaMemcpy(d_colStart, colStart.data(),
-                              N_BLOCKS * sizeof(indexType_t),
+                              N_TILES * sizeof(indexType_t),
                               cudaMemcpyHostToDevice));
         CUDA_CHECK(cudaMemcpy(d_colEnd, colEnd.data(),
-                              N_BLOCKS * sizeof(indexType_t),
+                              N_TILES * sizeof(indexType_t),
+                              cudaMemcpyHostToDevice));
+        CUDA_CHECK(cudaMemcpy(d_rowBlock, rowBlock.data(),
+                              N_TILES * sizeof(indexType_t),
                               cudaMemcpyHostToDevice));
 
         std::cout << "Completed all the CUDA malloc for warptiled and memcpy "
@@ -236,20 +243,21 @@ int main(int argc, char **argv) {
                               N_BYTES);
           Operations::parallelMultiplicationWarpTiled<
               indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
-              <<<N_BLOCKS, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+              <<<N_TILES, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
                   (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
-                  d_colStart, d_colEnd);
+                  d_colStart, d_colEnd, d_rowBlock);
           cudaDeviceSynchronize();
         } else {
           Operations::parallelMultiplicationWarpTiled<
               indexType_t, dataType_t, ROWS_PER_BLOCK, BLOCK_COL_CHUNK>
-              <<<N_BLOCKS, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
+              <<<N_TILES, N_THREAD, GPU_SHARED_MEMORY_SIZE>>>(
                   (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
-                  d_colStart, d_colEnd);
+                  d_colStart, d_colEnd, d_rowBlock);
           cudaDeviceSynchronize();
         }
         CUDA_CHECK(cudaFree(d_colStart));
         CUDA_CHECK(cudaFree(d_colEnd));
+        CUDA_CHECK(cudaFree(d_rowBlock));
       } break;
       default:
         std::cerr << "Uknown operation!" << std::endl;

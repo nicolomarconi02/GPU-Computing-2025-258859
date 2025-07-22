@@ -131,54 +131,57 @@ __global__ void parallelMultiplicationWarpTiled(
     indexType N_ROWS, const indexType* __restrict__ csr,
     const indexType* __restrict__ columns, const dataType* __restrict__ values,
     const dataType* __restrict__ vec, dataType* __restrict__ res,
-    const indexType* __restrict__ block_col_start,
-    const indexType* __restrict__ block_col_end) {
+    const indexType* __restrict__ tileColStart,
+    const indexType* __restrict__ tileColEnd,
+    const indexType* __restrict__ tileRowBlock) {
   const int warpSize = 32;
   const int tid = threadIdx.x;
-  const int warp_id_in_block = tid / warpSize;
+  const int warpIdInBlock = tid / warpSize;
   const int lane = tid % warpSize;
 
-  int block_row_start = blockIdx.x * ROWS_PER_BLOCK;
-  int row = block_row_start + warp_id_in_block;
+  int tileIdx = blockIdx.x;
+  int rowBlock = tileRowBlock[tileIdx];
+  int blockRowStart = rowBlock * ROWS_PER_BLOCK;
+  int row = blockRowStart + warpIdInBlock;
   if (row >= N_ROWS) return;
 
   extern __shared__ dataType s_vec[];
 
-  indexType col_start_block = block_col_start[blockIdx.x];
-  indexType col_end_block = block_col_end[blockIdx.x];
-  indexType span = col_end_block - col_start_block + 1;
+  indexType colStartBlock = tileColStart[blockIdx.x];
+  indexType colEndBlock = tileColEnd[blockIdx.x];
+  indexType span = colEndBlock - colStartBlock + 1;
 
-  dataType sum = 0;
+  for (indexType tileOffset = 0; tileOffset < span;
+       tileOffset += BLOCK_COL_CHUNK) {
+    indexType tileStartCol = colStartBlock + tileOffset;
+    indexType tileSize = min((indexType)BLOCK_COL_CHUNK, span - tileOffset);
 
-  for (indexType tile_offset = 0; tile_offset < span;
-       tile_offset += BLOCK_COL_CHUNK) {
-    indexType tile_start_col = col_start_block + tile_offset;
-    indexType tile_size = min((indexType)BLOCK_COL_CHUNK, span - tile_offset);
-
-    for (int c = tid; c < tile_size; c += blockDim.x) {
-      s_vec[c] = vec[tile_start_col + c];
+    for (int c = tid; c < tileSize; c += blockDim.x) {
+      s_vec[c] = vec[tileStartCol + c];
     }
     __syncthreads();
 
-    indexType row_start = csr[row];
-    indexType row_end = csr[row + 1];
+    indexType rowStart = csr[row];
+    indexType rowEnd = csr[row + 1];
 
-    for (indexType j = row_start + lane; j < row_end; j += warpSize) {
+    dataType partialSum = 0;
+
+    for (indexType j = rowStart + lane; j < rowEnd; j += warpSize) {
       indexType col = columns[j];
-      if (col >= tile_start_col && col < tile_start_col + tile_size) {
-        sum += values[j] * s_vec[col - tile_start_col];
+      if (col >= tileStartCol && col < tileStartCol + tileSize) {
+        partialSum += values[j] * s_vec[col - tileStartCol];
       }
     }
 
-    __syncthreads();
-  }
+    for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+      partialSum += __shfl_down_sync(0xFFFFFFFF, partialSum, offset);
+    }
 
-  for (int offset = warpSize / 2; offset > 0; offset /= 2) {
-    sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
-  }
-
-  if (lane == 0) {
-    res[row] = sum;
+    if (lane == 0 && tileOffset == 0) {
+      res[row] = partialSum;
+    } else if (lane == 0) {
+      res[row] += partialSum;
+    }
   }
 }
 }  // namespace Operations
