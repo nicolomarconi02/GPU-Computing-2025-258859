@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <cusparse.h>
 #include <cuda_runtime.h>
+#include "utils/cuda_utils.cuh"
 
 namespace Operations {
 enum MultiplicationTypes : uint8_t {
@@ -12,6 +13,7 @@ enum MultiplicationTypes : uint8_t {
   Warp,
   WarpLoop,
   WarpTiled,
+  MergeBased,
   CuSparse,
   SIZE
 };
@@ -224,5 +226,39 @@ void SpMVcuSparse(indexType N_ROWS, indexType N_COLS, indexType N_ELEM,
   cusparseDestroyDnVec(vecX);
   cusparseDestroyDnVec(vecY);
   cusparseDestroy(handle);
+}
+
+template <typename indexType, typename dataType>
+__global__ void parallelMultiplicationMergeBased(indexType N_ROWS, indexType N_ELEM,
+                                 const indexType* __restrict__ csr,
+                                 const indexType* __restrict__ columns,
+                                 const dataType* __restrict__ values,
+                                 const dataType* __restrict__ vec,
+                                 dataType* __restrict__ res) {
+  indexType tid = blockIdx.x * blockDim.x + threadIdx.x;
+  indexType totalThreads = gridDim.x * blockDim.x;
+
+  indexType nnzPerThread = (N_ELEM + totalThreads - 1) / totalThreads;
+  indexType start_nnz = tid * nnzPerThread;
+  indexType end_nnz = min(start_nnz + nnzPerThread, N_ELEM);
+
+  if (start_nnz >= N_ELEM) return;
+
+  indexType row = findRowFromCSR(csr, N_ROWS, start_nnz);
+
+  indexType row_start = csr[row];
+  indexType row_end = csr[row + 1];
+
+  for (indexType k = start_nnz; k < end_nnz; k++) {
+    while (k >= row_end) {
+      row++;
+      row_start = csr[row];
+      row_end = csr[row + 1];
+    }
+
+    indexType col = columns[k];
+    float val = values[k];
+    atomicAdd(&res[row], val * vec[col]);
+  }
 }
 }  // namespace Operations

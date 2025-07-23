@@ -33,7 +33,8 @@ int main(int argc, char **argv) {
               << "2 -> warp multiplication" << std::endl
               << "3 -> warp multiplication loop" << std::endl
               << "4 -> warp multiplication tiled" << std::endl
-              << "5 -> CuSparse" << std::endl;
+              << "5 -> merge based multiplication" << std::endl
+              << "6 -> CuSparse" << std::endl;
     exit(2);
   }
 
@@ -263,6 +264,27 @@ int main(int argc, char **argv) {
         CUDA_CHECK(cudaFree(d_colStart));
         CUDA_CHECK(cudaFree(d_colEnd));
         CUDA_CHECK(cudaFree(d_rowBlock));
+      } break;
+      case Operations::MultiplicationTypes::MergeBased: {
+        const indexType_t N_THREAD = 256;
+        const indexType_t N_BLOCKS = (matrix.N_ELEM + N_THREAD - 1) / N_THREAD;
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        // profile the multiplication only after the warmup cycles
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-merge-based", 2 * matrix.N_ELEM,
+                              N_BYTES);
+          Operations::parallelMultiplicationMergeBased<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, (indexType_t)matrix.N_ELEM, csr,
+              columns, values, array, res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::parallelMultiplicationMergeBased<<<N_BLOCKS, N_THREAD>>>(
+              (indexType_t)matrix.N_ROWS, (indexType_t)matrix.N_ELEM, csr,
+              columns, values, array, res2);
+          cudaDeviceSynchronize();
+        }
       } break;
       case Operations::MultiplicationTypes::CuSparse: {
         // profile the multiplication only after the warmup cycles
