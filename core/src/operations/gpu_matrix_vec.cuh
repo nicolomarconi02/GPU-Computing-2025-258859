@@ -102,26 +102,39 @@ template <typename indexType, typename dataType>
 __global__ void parallelMultiplicationWarpLoop(
     const indexType N_ROWS, const indexType* __restrict__ csr,
     const indexType* __restrict__ columns, const dataType* __restrict__ values,
-    const dataType* __restrict__ vec, dataType* __restrict__ res) {
-  const int warpSize = 32;
-  const int threadId = threadIdx.x + blockDim.x * blockIdx.x;
-  const int warpId = threadId / warpSize;
-  const int lane = threadIdx.x % warpSize;
-  const int totalWarps = gridDim.x * blockDim.x / warpSize;
+    const dataType* __restrict__ vec, dataType* __restrict__ res,
+    indexType* __restrict__ globalRowCounter) {
+  const indexType warpSize = 32;
+  const indexType lane = threadIdx.x % warpSize;
+  const indexType warpIdInBlock = threadIdx.x / warpSize;
+  const indexType warpsPerBlock = blockDim.x / warpSize;
 
-  if (warpId >= N_ROWS) return;
+  while (true) {
+    indexType row;
+    if (lane == 0) {
+      row = atomicAdd(globalRowCounter, 1);
+    }
+    row = __shfl_sync(0xFFFFFFFF, row, 0);
 
-  for (indexType row = warpId; row < N_ROWS; row += totalWarps) {
-    indexType rowStart = csr[row];
-    indexType rowEnd = csr[row + 1];
-
-    dataType sum = 0;
-
-    for (indexType j = rowStart + lane; j < rowEnd; j += warpSize) {
-      sum += values[j] * vec[columns[j]];
+    if (row >= N_ROWS) {
+      break;  // No more work
     }
 
-    for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+    const indexType rowStart = __ldg(&csr[row]);
+    const indexType rowEnd = __ldg(&csr[row + 1]);
+
+    dataType sum = 0;
+    indexType j = rowStart + lane;
+
+#pragma unroll 4
+    for (; j < rowEnd; j += warpSize) {
+      const indexType col = __ldg(&columns[j]);
+      const dataType val = __ldg(&values[j]);
+      const dataType x = __ldg(&vec[col]);
+      sum += val * x;
+    }
+
+    for (indexType offset = warpSize / 2; offset > 0; offset /= 2) {
       sum += __shfl_down_sync(0xFFFFFFFF, sum, offset);
     }
 
@@ -229,12 +242,10 @@ void SpMVcuSparse(indexType N_ROWS, indexType N_COLS, indexType N_ELEM,
 }
 
 template <typename indexType, typename dataType>
-__global__ void parallelMultiplicationMergeBased(indexType N_ROWS, indexType N_ELEM,
-                                 const indexType* __restrict__ csr,
-                                 const indexType* __restrict__ columns,
-                                 const dataType* __restrict__ values,
-                                 const dataType* __restrict__ vec,
-                                 dataType* __restrict__ res) {
+__global__ void parallelMultiplicationMergeBased(
+    indexType N_ROWS, indexType N_ELEM, const indexType* __restrict__ csr,
+    const indexType* __restrict__ columns, const dataType* __restrict__ values,
+    const dataType* __restrict__ vec, dataType* __restrict__ res) {
   indexType tid = blockIdx.x * blockDim.x + threadIdx.x;
   indexType totalThreads = gridDim.x * blockDim.x;
 
@@ -246,19 +257,20 @@ __global__ void parallelMultiplicationMergeBased(indexType N_ROWS, indexType N_E
 
   indexType row = findRowFromCSR(csr, N_ROWS, start_nnz);
 
-  indexType row_start = csr[row];
-  indexType row_end = csr[row + 1];
+  indexType row_start = __ldg(&csr[row]);
+  indexType row_end = __ldg(&csr[row + 1]);
 
   for (indexType k = start_nnz; k < end_nnz; k++) {
     while (k >= row_end) {
       row++;
-      row_start = csr[row];
-      row_end = csr[row + 1];
+      row_start = __ldg(&csr[row]);
+      row_end = __ldg(&csr[row + 1]);
     }
 
-    indexType col = columns[k];
-    float val = values[k];
-    atomicAdd(&res[row], val * vec[col]);
+    indexType col = __ldg(&columns[k]);
+    dataType val = __ldg(&values[k]);
+    dataType vecVal = __ldg(&vec[col]);
+    atomicAdd(&res[row], val * vecVal);
   }
 }
 }  // namespace Operations

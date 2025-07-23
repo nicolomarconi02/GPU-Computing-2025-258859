@@ -180,25 +180,33 @@ int main(int argc, char **argv) {
         }
       } break;
       case Operations::MultiplicationTypes::WarpLoop: {
+        const indexType_t N_THREAD = 256;
         const indexType_t N_BLOCKS =
-            COMPUTE_N_BLOCKS(indexType_t, matrix.N_ROWS);
-        const indexType_t N_THREAD =
-            COMPUTE_N_THREAD(indexType_t, matrix.N_ROWS);
+            (matrix.N_ROWS + (N_THREAD / 32) - 1) / (N_THREAD / 32);
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
             matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        indexType_t *d_globalCounter;
+        CUDA_CHECK(cudaMalloc(&d_globalCounter, sizeof(indexType_t)));
+        CUDA_CHECK(cudaMemset(d_globalCounter, 0, sizeof(indexType_t)));
+        std::cout << "Completed all the CUDA malloc and memcpy "
+                     "correctly for warp loop!"
+                  << std::endl;
         // profile the multiplication only after the warmup cycles
         if (run >= GPU_N_WARMUP_RUNS) {
           ScopeProfiler pMult("multiplication-warp-loop", 2 * matrix.N_ELEM,
                               N_BYTES);
           Operations::parallelMultiplicationWarpLoop<<<N_BLOCKS, N_THREAD>>>(
-              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
+              d_globalCounter);
           cudaDeviceSynchronize();
         } else {
           Operations::parallelMultiplicationWarpLoop<<<N_BLOCKS, N_THREAD>>>(
-              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2);
+              (indexType_t)matrix.N_ROWS, csr, columns, values, array, res2,
+              d_globalCounter);
           cudaDeviceSynchronize();
         }
+        CUDA_CHECK(cudaFree(d_globalCounter));
       } break;
       case Operations::MultiplicationTypes::WarpTiled: {
         const indexType_t N_THREAD = 512;
@@ -266,7 +274,7 @@ int main(int argc, char **argv) {
         CUDA_CHECK(cudaFree(d_rowBlock));
       } break;
       case Operations::MultiplicationTypes::MergeBased: {
-        const indexType_t N_THREAD = 256;
+        const indexType_t N_THREAD = 128;
         const indexType_t N_BLOCKS = (matrix.N_ELEM + N_THREAD - 1) / N_THREAD;
         const indexType_t N_BYTES =
             matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
