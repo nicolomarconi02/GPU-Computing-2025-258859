@@ -123,7 +123,12 @@ For the GPU executables the multiplications are three:
 ```
 0 -> thread per row multiplication
 1 -> element wise multiplication
-2 -> warp based multiplication
+2 -> warp multiplication
+3 -> warp multiplication loop
+4 -> warp multiplication tiled
+5 -> merge based multiplication
+6 -> merge based multiplication v4
+7 -> CuSparse
 ```
 
 ## Outputs
