@@ -4,6 +4,7 @@
 #include <defines.hpp>
 #include <stdio.h>
 #include <cusparse.h>
+#include "utils/cuda_utils.cuh"
 #include <cuda_runtime.h>
 
 namespace Operations {
