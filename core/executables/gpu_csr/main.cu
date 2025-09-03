@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <iterator>
 #include <nvToolsExt.h>
+#include <structures/block_partition.hpp>
+#include <structures/boundary_result.hpp>
 #include <utils/sort_matrix.hpp>
 #include "utils/parser.hpp"
 #include "structures/matrix.hpp"
@@ -34,7 +36,8 @@ int main(int argc, char **argv) {
               << "3 -> warp multiplication loop" << std::endl
               << "4 -> warp multiplication tiled" << std::endl
               << "5 -> merge based multiplication" << std::endl
-              << "6 -> CuSparse" << std::endl;
+              << "6 -> merge based multiplication v4" << std::endl
+              << "7 -> CuSparse" << std::endl;
     exit(2);
   }
 
@@ -215,9 +218,7 @@ int main(int argc, char **argv) {
 
         const indexType_t N_BLOCKS =
             (matrix.N_ROWS + ROWS_PER_BLOCK - 1) / ROWS_PER_BLOCK;
-        const indexType_t N_BYTES =
-            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
-            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+
         std::vector<indexType_t> colStart, colEnd, rowBlock;
         Utils::computeBlockColRangesOptimized(
             (indexType_t)matrix.N_ROWS, matrix.csr, matrix.columns,
@@ -230,6 +231,12 @@ int main(int argc, char **argv) {
         }
 
         const indexType_t N_TILES = colStart.size();
+        const indexType_t N_BYTES = (matrix.N_ROWS + 1) * sizeof(indexType_t) +
+                                    matrix.N_ELEM * sizeof(indexType_t) +
+                                    matrix.N_ELEM * sizeof(dataType_t) +
+                                    matrix.N_ELEM * sizeof(dataType_t) +
+                                    3 * N_TILES * sizeof(indexType_t) +
+                                    matrix.N_ROWS * sizeof(dataType_t);
 
         indexType_t *d_colStart, *d_colEnd, *d_rowBlock;
         CUDA_CHECK(cudaMalloc(&d_colStart, (N_TILES) * sizeof(indexType_t)));
@@ -293,6 +300,66 @@ int main(int argc, char **argv) {
               columns, values, array, res2);
           cudaDeviceSynchronize();
         }
+      } break;
+      case Operations::MultiplicationTypes::MergeBased_v4: {
+        indexType_t *d_path_start_rows, *d_path_start_nnz;
+        dataType_t *d_partial_sums;
+        const indexType_t N_THREAD = 128;
+        const indexType_t N_BLOCKS = (matrix.N_ELEM + N_THREAD - 1) / N_THREAD;
+        const indexType_t N_BYTES =
+            matrix.N_ELEM * (sizeof(dataType_t) * 2 + sizeof(indexType_t)) +
+            matrix.N_ROWS * (sizeof(dataType_t) + 2 * sizeof(indexType_t));
+        CUDA_CHECK(cudaMalloc(&d_path_start_rows,
+                              N_BLOCKS * N_THREAD * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMalloc(&d_path_start_nnz,
+                              N_BLOCKS * N_THREAD * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMalloc(&d_partial_sums,
+                              N_BLOCKS * N_THREAD * sizeof(dataType_t)));
+        CUDA_CHECK(cudaMemset(d_path_start_rows, 0,
+                              N_BLOCKS * N_THREAD * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMemset(d_path_start_nnz, 0,
+                              N_BLOCKS * N_THREAD * sizeof(indexType_t)));
+        CUDA_CHECK(cudaMemset(d_partial_sums, 0,
+                              N_BLOCKS * N_THREAD * sizeof(dataType_t)));
+        if (run >= GPU_N_WARMUP_RUNS) {
+          ScopeProfiler pMult("multiplication-merge-based-v4",
+                              2 * matrix.N_ELEM, N_BYTES);
+          Operations::computePathPartitions<indexType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       (indexType_t)matrix.N_ELEM, csr,
+                                       d_path_start_rows, d_path_start_nnz);
+          cudaDeviceSynchronize();
+          Operations::consumePathAndReduce<indexType_t, dataType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       (indexType_t)matrix.N_ELEM, csr, columns,
+                                       values, array, d_path_start_rows,
+                                       d_path_start_nnz, res2, d_partial_sums);
+          cudaDeviceSynchronize();
+          Operations::fixupPartials<indexType_t, dataType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       d_path_start_rows, d_partial_sums, res2);
+          cudaDeviceSynchronize();
+        } else {
+          Operations::computePathPartitions<indexType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       (indexType_t)matrix.N_ELEM, csr,
+                                       d_path_start_rows, d_path_start_nnz);
+          cudaDeviceSynchronize();
+          Operations::consumePathAndReduce<indexType_t, dataType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       (indexType_t)matrix.N_ELEM, csr, columns,
+                                       values, array, d_path_start_rows,
+                                       d_path_start_nnz, res2, d_partial_sums);
+          cudaDeviceSynchronize();
+          Operations::fixupPartials<indexType_t, dataType_t>
+              <<<N_BLOCKS, N_THREAD>>>((indexType_t)matrix.N_ROWS,
+                                       d_path_start_rows, d_partial_sums, res2);
+          cudaDeviceSynchronize();
+        }
+
+        CUDA_CHECK(cudaFree(d_path_start_rows));
+        CUDA_CHECK(cudaFree(d_path_start_nnz));
+        CUDA_CHECK(cudaFree(d_partial_sums));
       } break;
       case Operations::MultiplicationTypes::CuSparse: {
         // profile the multiplication only after the warmup cycles

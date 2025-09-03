@@ -1,4 +1,6 @@
 #pragma once
+#include "structures/matrix.hpp"
+#include "structures/block_partition.hpp"
 
 #define CUDA_CHECK(call)                                                       \
   {                                                                            \
@@ -33,4 +35,37 @@ __device__ __forceinline__ indexType findRowFromCSR(
     }
   }
   return nrows - 1;
+}
+
+template <typename indexType, typename dataType>
+void precomputePartitions(const Matrix<indexType, dataType>& matrix,
+                          indexType numBlocks, indexType blockSize,
+                          std::vector<BlockPartition<indexType>>& partitions) {
+  partitions.resize(numBlocks);
+  indexType totalThreads = numBlocks * blockSize;
+  indexType totalPathLen = matrix.N_ROWS + matrix.N_ELEM;
+
+  for (indexType i = 0; i < numBlocks; ++i) {
+    indexType blockPathStartDiag =
+        (i * blockSize * totalPathLen) / totalThreads;
+    indexType blockPathEndDiag =
+        ((i + 1) * blockSize * totalPathLen) / totalThreads;
+
+    auto findStart = [&](indexType diagonal, indexType& row, indexType& nnz) {
+      indexType low = 0, high = matrix.N_ROWS;
+      while (low < high) {
+        indexType mid = low + (high - low) / 2;
+        if (matrix.csr[mid] > diagonal - mid)
+          high = mid;
+        else
+          low = mid + 1;
+      }
+      row = low - 1;
+      nnz = diagonal - row;
+    };
+
+    findStart(blockPathStartDiag, partitions[i].startRow,
+              partitions[i].startNnz);
+    findStart(blockPathEndDiag, partitions[i].endRow, partitions[i].endNnz);
+  }
 }

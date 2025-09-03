@@ -1,10 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <defines.hpp>
 #include <stdio.h>
 #include <cusparse.h>
 #include <cuda_runtime.h>
-#include "utils/cuda_utils.cuh"
 
 namespace Operations {
 enum MultiplicationTypes : uint8_t {
@@ -14,6 +14,7 @@ enum MultiplicationTypes : uint8_t {
   WarpLoop,
   WarpTiled,
   MergeBased,
+  MergeBased_v4,
   CuSparse,
   SIZE
 };
@@ -273,4 +274,122 @@ __global__ void parallelMultiplicationMergeBased(
     atomicAdd(&res[row], val * vecVal);
   }
 }
+
+template <typename indexType>
+__global__ void computePathPartitions(
+    indexType N_ROWS, indexType N_ELEM,
+    const indexType* __restrict__ csr,
+    indexType* __restrict__ path_start_rows,
+    indexType* __restrict__ path_start_nnz) {
+  indexType tid = blockIdx.x * blockDim.x + threadIdx.x;
+  indexType totalThreads = gridDim.x * blockDim.x;
+
+  indexType total_path_length = N_ROWS + N_ELEM;
+  indexType work_per_thread =
+      (total_path_length + totalThreads - 1) / totalThreads;
+  indexType diagonal = min(tid * work_per_thread, total_path_length);
+
+  if (tid >= totalThreads) return;
+  if (diagonal >= total_path_length && tid != totalThreads) {
+    diagonal = total_path_length;
+  }
+
+  indexType row_low = 0;
+  indexType row_high = N_ROWS;
+  indexType row_mid;
+
+  while (row_high - row_low > 1) {
+    row_mid = row_low + (row_high - row_low) / 2;
+    indexType nnz_at_row = csr[row_mid];
+    if (row_mid + nnz_at_row > diagonal) {
+      row_high = row_mid;
+    } else {
+      row_low = row_mid;
+    }
+  }
+
+  indexType start_row = row_low;
+  indexType start_nnz = diagonal - start_row;
+
+  path_start_rows[tid] = start_row;
+  path_start_nnz[tid] = start_nnz;
+}
+
+template <typename indexType, typename dataType>
+__global__ void consumePathAndReduce(
+    indexType N_ROWS, indexType N_ELEM,
+    const indexType* __restrict__ csr,
+    const indexType* __restrict__ columns, const dataType* __restrict__ values,
+    const dataType* __restrict__ vec,
+    const indexType* __restrict__ path_start_rows,
+    const indexType* __restrict__ path_start_nnz, dataType* __restrict__ res,
+    dataType* __restrict__ partial_sums) {
+  indexType tid = blockIdx.x * blockDim.x + threadIdx.x;
+  indexType totalThreads = gridDim.x * blockDim.x;
+
+  if (tid >= totalThreads) return;
+
+  indexType start_row = path_start_rows[tid];
+  indexType start_nnz = path_start_nnz[tid];
+  indexType end_row =
+      (tid + 1 < totalThreads) ? path_start_rows[tid + 1] : N_ROWS;
+  indexType end_nnz =
+      (tid + 1 < totalThreads) ? path_start_nnz[tid + 1] : N_ELEM;
+
+  if (start_row >= N_ROWS) return;
+
+  dataType accumulator = 0.0;
+
+  if (start_row == end_row) {
+    for (indexType k = start_nnz; k < end_nnz; k++) {
+      accumulator += values[k] * __ldg(&vec[columns[k]]);
+    }
+    partial_sums[tid] = accumulator;
+    return;
+  }
+
+  indexType first_row_end_nnz = csr[start_row + 1];
+  for (indexType k = start_nnz; k < first_row_end_nnz; k++) {
+    accumulator += values[k] * __ldg(&vec[columns[k]]);
+  }
+  partial_sums[tid] = accumulator;
+
+  for (indexType row = start_row + 1; row < end_row; row++) {
+    accumulator = 0.0;
+    indexType full_row_start_nnz = csr[row];
+    indexType full_row_end_nnz = csr[row + 1];
+    for (indexType k = full_row_start_nnz; k < full_row_end_nnz; k++) {
+      accumulator += values[k] * __ldg(&vec[columns[k]]);
+    }
+    res[row] = accumulator;
+  }
+
+  accumulator = 0.0;
+  indexType last_row_start_nnz = csr[end_row];
+  for (indexType k = last_row_start_nnz; k < end_nnz; k++) {
+    accumulator += values[k] * __ldg(&vec[columns[k]]);
+  }
+  if (accumulator != 0.0) {
+    atomicAdd(&res[end_row], accumulator);
+  }
+}
+
+template <typename indexType, typename dataType>
+__global__ void fixupPartials(indexType N_ROWS,
+                               const indexType* __restrict__ pathStartRows,
+                               const dataType* __restrict__ partialSums,
+                               dataType* __restrict__ res) {
+  indexType tid = blockIdx.x * blockDim.x + threadIdx.x;
+  indexType totalThreads = gridDim.x * blockDim.x;
+
+  if (tid >= totalThreads) return;
+
+  indexType currentStartRow = pathStartRows[tid];
+  dataType currentPartialSum = partialSums[tid];
+
+  if (currentStartRow < N_ROWS && currentPartialSum != 0.0) {
+    atomicAdd(&res[currentStartRow], currentPartialSum);
+  }
+}
+
 }  // namespace Operations
